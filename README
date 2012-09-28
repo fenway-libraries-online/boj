@@ -1,0 +1,72 @@
+Name
+----
+
+boj - run a batch job and mail its output
+
+
+Description
+-----------
+
+boj is a simple shell script suitable for use as a cron job wrapper.  It runs
+another script (or other executable) and mails the resulting output to the
+user, unless the script exited normally and didn't produce any output.  (There
+are options to modify this behavior.)
+
+It also logs a timestamped record of the job, including an indication of its
+success or failure, to /var/log/boj.log or ~/.bojlog or another specified file.
+
+
+Prerequisites
+-------------
+
+zsh (The Z Shell) -- http://www.zsh.org/
+
+
+Installation
+------------
+
+As root:
+
+    # vi config.mk
+    # make install
+
+Or as another user:
+
+    $ vi config.mk
+    $ sudo make install
+
+
+Options
+-------
+
+See the man page for details.
+
+
+Examples
+--------
+
+Run a command and mail its output (if any) to yourself:
+
+    $ boj /path/to/executable arg1 arg2 ...
+
+Set the mail subject and recipient:
+
+    $ boj -s 'Your job output' -t foo@example.com ...
+
+Indicate the job's success or failure in the subject line:
+
+    $ boj -s 'Job result: %r' ...
+
+Run the _run_ executable in a "project directory":
+
+    $ boj -p /path/to/project ...
+
+
+Author
+------
+
+Paul Hoffman <nkuitse@nkuitse.com>
+
+Copyright 2012 Fenway Libraries Online.  Released under the terms of the GNU
+General Public License, version 2 -- see the file LICENSE for details.
+

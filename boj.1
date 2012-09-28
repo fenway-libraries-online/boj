@@ -1,0 +1,149 @@
+.\" Process this file with
+.\" groff -man -Tascii boj.1
+.\"
+.TH boj 1 "boj"
+.
+.
+.SH NAME
+.
+boj \- run a batch job and mail output
+.
+.
+.\" -----------------------------------------------------------------
+.
+.SH SYNOPSIS
+.
+.B boj
+[
+.IR OPTION .\|.\|.\&
+]
+.I COMMAND
+[
+.IR ARG .\|.\|.\&
+]
+.
+.\" -----------------------------------------------------------------
+.
+.SH DESCRIPTION
+.
+.B boj
+runs
+.I COMMAND
+for a user and mails its output (if any) to the user.
+.
+.\" -----------------------------------------------------------------
+.
+.SH OPTIONS
+.
+.TP
+.B -n
+Don't send mail unless 
+.I COMMAND
+exited with non-zero status.
+.
+.TP
+.B -m
+Always send mail, regardless of whether 
+.I COMMAND
+exited with non-zero status or produced any output.
+.
+.TP
+.B -k
+Keep the output file.
+.
+.TP
+.B -r
+Remove the output file before exiting.
+.
+.TP
+.BI -d " DIR"
+Change to 
+.I DIR
+before running the job.
+.
+.TP
+.BI -o " FILE"
+Put output in 
+.I FILE
+rather than a temporary file in
+.B /tmp
+-- this implies option
+.B -k
+which can be overridden by option
+.BR -r .
+.
+.TP
+.BI -l " FILE"
+Log the result in 
+.I FILE
+rather than 
+.B /var/log/boj.log
+The log entry consists of the result code
+.B OK
+or
+.B FAIL
+followed by the time execution began, the time it ended,
+and finally 
+.I COMMAND
+along with its arguments.
+.
+.TP
+.B -L
+Log the result in
+.BR ~/.bojlog .
+.
+.TP
+.BI -f " ADDRESS"
+Use
+.I ADDRESS
+as the sender of the notification.
+.
+.TP
+.BI -t " ADDRESS"
+Send the notification to
+.IR ADDRESS .
+.
+.TP
+.BI -s " STRING"
+Use
+.I STRING
+as the subject of the notification.
+.
+.TP
+.BI -p " DIR"
+Use 
+.I DIR
+as the
+.BR "project directory" .
+This sets the options
+.B -d
+.IR DIR ,
+.BR -o " out,"
+.BR -l " log,"
+runs the executable at
+.IR DIR /run,
+and sends a notification using the template in
+.B mail.OK
+or
+.B mail.FAIL
+depending on whether the exit status of the executable was 0 or not.
+Options
+.BR -f ,
+.BR -t ,
+and
+.B -s
+are ignored.  The files
+.BR keepout ,
+.BR alwaysmail ,
+and
+.B nomail
+set the corresponding options if they exist.
+.
+.\" -----------------------------------------------------------------
+.
+.\" .SH DIAGNOSTICS
+.SH AUTHOR
+Paul Hoffman <nkuitse AT nkuitse DOT com>
+.\" .SH "SEE ALSO"
+.\" .BR bar (1),
+

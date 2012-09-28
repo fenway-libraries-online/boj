@@ -1,0 +1,117 @@
+#!/bin/zsh
+
+# usage: boj [-d DIR] [-o FILE] [-l FILE] [-f FROM] [-t TO] [-s SUBJECT] SCRIPT
+
+typeset dir=/ projdir
+typeset out=/tmp/boj.$$.out
+typeset log=/var/log/boj.log
+typeset msg=/tmp/boj.$$.msg
+typeset nomail=true alwaysmail=false keepout=false
+typeset user=$(print -P %n)
+typeset host=$(print -P %m)
+typeset HOST=$(print -P %M)
+typeset mailfrom=${MAILFROM:-$user} mailto=${MAILTO:-$user} mailsubj=${MAILSUBJ:-'[%r] %c'}
+typeset timestamp='%D{%Y%m%dT%H%M%S}'
+typeset begin="$(print -P $timestamp)"
+typeset result=FAIL
+typeset cmdline cmd
+
+main() {
+    while getopts :nmkrLd:o:l:f:t:s:p: opt; do
+        case $opt in
+            (n) nomail=true      ;;
+            (m) alwaysmail=true  ;;
+            (k) keepout=true     ;;
+            (r) keepout=false    ;;
+            (L) log=~/.bojlog    ;;
+            (d) dir=$OPTARG      ;;
+            (o) out=$OPTARG
+                keepout=true     ;;
+            (l) log=$OPTARG      ;;
+            (f) mailfrom=$OPTARG ;;
+            (t) mailto=$OPTARG   ;;
+            (s) mailsubj=$OPTARG ;;
+            (p) projdir=$OPTARG  ;;
+        esac
+    done
+    shift $(( OPTIND - 1 ))
+
+    # More setup
+    if [[ -n $projdir ]]; then
+        cd $projdir
+        (( $#argv == 0 )) && cmdline="run $*" || cmdline=run
+        out=./out
+        log=./log
+        cmd=./run
+        msg=./msg
+        [[ ! -e keepout    ]] || keepout=true
+        [[ ! -e alwaysmail ]] || alwaysmail=true
+        [[ ! -e nomail     ]] || nomail=true
+    else
+        cd $dir
+        cmdline="$*"
+        cmd=$1; shift
+    fi
+
+    # Make sure all output goes to the designated file
+    exec > $out 2>&1
+
+    # Set our exit handler, which takes care of logging and notification
+    TRAPEXIT() {
+        integer err=$?
+        set +e  # Turn off automatic exit on error
+        typeset end="$(print -P $timestamp)"
+        (( err != 0 )) || result=OK
+        printf '%-4.4s %s %s %s\n' $result $begin $end $cmdline >> $log
+        # Send notification
+        typeset notify=false
+        if (( err != 0 )) || $alwaysmail; then
+            notify=true
+        elif [[ -s $out ]] && ! $nomail; then
+            notify=true
+        fi
+        ! $notify || send-notification
+        $keepout || rm -f $out
+    }
+
+    # Automatically exit if a command fails
+    set -e
+
+    # Make sure we got a command to execute
+    [[ -n $cmd ]] || fatal 'usage: boj [OPTION]... SCRIPT [ARG]...'
+
+    # Run it
+    $cmd $@
+
+    # Everything else happens in TRAPEXIT
+}
+
+send-notification() {
+    if [[ -z $projdir ]]; then
+        mailsubj="${mailsubj/\%r/$result}"
+        mailsubj="${mailsubj/\%c/$cmdline}"
+        cat <<EOS
+From: $mailfrom
+To: $mailto
+Subject: $mailsubj
+
+EOS
+        cat $out
+    else
+        sed -e "s#%r#${result}#"    -e "s#%c#${cmdline}#" \
+            -e "s#%j#${projdir:t}#" -e "s#%J#${projdir}#" \
+            -e "s#%u#${user}#"      -e "s#%h#${host}#"    \
+            -e "s#%H#${HOST}#"      < mail.$result
+        cat $out
+    fi > $msg
+    /usr/sbin/sendmail -oi -t < $msg
+    # rm -f $msg
+}
+
+fatal() {
+    print -- "$@" >&2
+    exit 2
+}
+
+main "$@"
+
