@@ -7,10 +7,10 @@ boj - run a batch job and mail its output
 Description
 -----------
 
-boj is a simple shell script suitable for use as a cron job wrapper.  It runs
-another script (or other executable) and mails the resulting output to the
-user, unless the script exited normally and didn't produce any output.  (There
-are options to modify this behavior.)
+boj is a simple shell script suitable for use as a cron job wrapper.  It runs a
+command and mails the resulting output to the user, unless the script exited
+normally and didn't produce any output.  (There are options to modify this
+behavior.)
 
 It also logs a timestamped record of the job, including an indication of its
 success or failure, to /var/log/boj.log or ~/.bojlog or another specified file.
@@ -27,12 +27,12 @@ Installation
 
 As root:
 
-    # vi config.mk
+    # vim config.mk
     # make install
 
 Or as another user:
 
-    $ vi config.mk
+    $ vim config.mk
     $ sudo make install
 
 
