@@ -37,13 +37,13 @@ for a user and mails its output (if any) to the user.
 .
 .TP
 .B -n
-Don't send mail unless 
+Don't send mail unless
 .I COMMAND
 exited with non-zero status.
 .
 .TP
 .B -m
-Always send mail, regardless of whether 
+Always send mail, regardless of whether
 .I COMMAND
 exited with non-zero status or produced any output.
 .
@@ -57,13 +57,13 @@ Remove the output file before exiting.
 .
 .TP
 .BI -d " DIR"
-Change to 
+Change to
 .I DIR
 before running the job.
 .
 .TP
 .BI -o " FILE"
-Put output in 
+Put output in
 .I FILE
 rather than a temporary file in
 .B /tmp
@@ -74,16 +74,16 @@ which can be overridden by option
 .
 .TP
 .BI -l " FILE"
-Log the result in 
+Log the result in
 .I FILE
-rather than 
+rather than
 .B /var/log/boj.log
 The log entry consists of the result code
 .B OK
 or
 .B FAIL
 followed by the time execution began, the time it ended,
-and finally 
+and finally
 .I COMMAND
 along with its arguments.
 .
@@ -91,6 +91,9 @@ along with its arguments.
 .B -L
 Log the result in
 .BR ~/.bojlog .
+This is the default if
+.B /var/log/boj.log
+is not writeable.
 .
 .TP
 .BI -f " ADDRESS"
@@ -111,7 +114,7 @@ as the subject of the notification.
 .
 .TP
 .BI -p " DIR"
-Use 
+Use
 .I DIR
 as the
 .BR "project directory" .
@@ -139,11 +142,57 @@ and
 .B nomail
 set the corresponding options if they exist.
 .
+.SH OUTPUT
+The following strings are expanded in the header of a message:
+.
+.TP
+.B %R
+is replaced by the exit status of the executable.
+.
+.TP
+.B %r
+is replaced by
+.B OK
+or
+.B FAIL
+depending on whether the exit status of the executable was 0 or not.
+.
+.TP
+.B %c
+is replaced by the command (and any arguments).
+.
+.TP
+.B %J
+is replaced by
+.I DIR
+if
+.BI -p " DIR"
+was specified.
+.
+.TP
+.B %j
+is replaced by the trailing component of
+.I DIR
+if
+.BI -p " DIR"
+was specified.
+.
+.TP
+.B %u
+is replaced by the user name.
+.
+.TP
+.B %h
+is replaced by the host name up to the first `.'.
+.
+.TP
+.B %H
+is replaced by the full host name.
 .\" -----------------------------------------------------------------
 .
 .\" .SH DIAGNOSTICS
 .SH AUTHOR
-Paul Hoffman <nkuitse@nkuitse.com>
+Paul Hoffman <paul@flo.org>
 .
 .SH COPYRIGHT
 Copyright 2012 Fenway Libraries Online.  Released under the terms of the GNU
