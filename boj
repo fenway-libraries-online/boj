@@ -3,7 +3,7 @@
 typeset dir=/ projdir
 typeset out=/tmp/boj.$$.out
 typeset log=/var/log/boj.log
-typeset msg=/tmp/boj.$$.msg
+typeset msg=${TMPDIR:-/tmp}/boj.$$.msg
 typeset nomail=true alwaysmail=false keepout=false
 typeset user=$(print -P %n)
 typeset host=$(print -P %m)
