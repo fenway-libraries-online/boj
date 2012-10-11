@@ -1,7 +1,7 @@
 .\" Process this file with
 .\" groff -man -Tascii boj.1
 .\"
-.TH boj 1 "boj"
+.TH BOJ 1 "boj"
 .
 .
 .SH NAME
@@ -156,6 +156,13 @@ is replaced by
 or
 .B FAIL
 depending on whether the exit status of the executable was 0 or not.
+.
+.TP
+.B %4r
+is like
+.B %r
+but padded with spaces on the right so that it always four bytes long.
+(This is the only time when a number may be specified.)
 .
 .TP
 .B %c

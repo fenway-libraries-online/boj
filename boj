@@ -10,6 +10,7 @@ typeset host=$(print -P %m)
 typeset HOST=$(print -P %M)
 typeset mailfrom=${MAILFROM:-$user} mailto=${MAILTO:-$user} mailsubj=${MAILSUBJ:-'[%r] %c'}
 typeset timestamp='%D{%Y%m%dT%H%M%S}'
+
 typeset begin="$(print -P $timestamp)"
 typeset result=FAIL
 integer err=0
@@ -116,7 +117,7 @@ fatal() {
 }
 
 expand-escapes() {
-    sed -e "s#%r#${result}#"    -e "s#%R#${err}#"     \
+    sed -e "s#%r#${result}#"    -e "s#%4r#$(printf '%-4.4s' $result)#" -e "s#%R#${err}#"     \
         -e "s#%j#${projdir:t}#" -e "s#%J#${projdir}#" \
         -e "s#%u#${user}#"      -e "s#%h#${host}#"    \
         -e "s#%H#${HOST}#"      -e "s#%c#${cmdline}#"
