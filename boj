@@ -1,7 +1,7 @@
 #!/bin/zsh
 
 typeset dir=/ projdir
-typeset out=/tmp/boj.$$.out
+typeset out=${TMPDIR:-/tmp}/boj.$$.out
 typeset log=/var/log/boj.log
 typeset msg=${TMPDIR:-/tmp}/boj.$$.msg
 typeset nomail=true alwaysmail=false keepout=false
@@ -95,15 +95,7 @@ usage() {
 
 send-notification() {
     if [[ -z $projdir ]]; then
-        mailsubj="${mailsubj/\%r/$result}"
-        mailsubj="${mailsubj/\%R/$err}"
-        mailsubj="${mailsubj/\%j/$projdir:t}"
-        mailsubj="${mailsubj/\%J/$projdir}"
-        mailsubj="${mailsubj/\%u/$user}"
-        mailsubj="${mailsubj/\%h/$host}"
-        mailsubj="${mailsubj/\%H/$HOST}"
-        mailsubj="${mailsubj/\%c/$cmdline}"
-        cat <<EOS
+        expand-escapes <<EOS
 From: $mailfrom
 To: $mailto
 Subject: $mailsubj
@@ -111,11 +103,7 @@ Subject: $mailsubj
 EOS
         cat $out
     else
-        sed -e "s#%r#${result}#"    -e "s#%R#${err}#"     \
-            -e "s#%j#${projdir:t}#" -e "s#%J#${projdir}#" \
-            -e "s#%u#${user}#"      -e "s#%h#${host}#"    \
-            -e "s#%H#${HOST}#"      -e "s#%c#${cmdline}#" \
-            < mail.$result
+        expand-escapes < mail.$result
         cat $out
     fi > $msg
     /usr/sbin/sendmail -oi -t < $msg
@@ -125,6 +113,13 @@ EOS
 fatal() {
     print -- "$@" >&2
     exit 2
+}
+
+expand-escapes() {
+    sed -e "s#%r#${result}#"    -e "s#%R#${err}#"     \
+        -e "s#%j#${projdir:t}#" -e "s#%J#${projdir}#" \
+        -e "s#%u#${user}#"      -e "s#%h#${host}#"    \
+        -e "s#%H#${HOST}#"      -e "s#%c#${cmdline}#"
 }
 
 main "$@"
