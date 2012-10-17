@@ -146,11 +146,11 @@ set the corresponding options if they exist.
 The following strings are expanded in the header of a message:
 .
 .TP
-.B %R
+.B $R
 is replaced by the exit status of the executable.
 .
 .TP
-.B %r
+.B $r
 is replaced by
 .B OK
 or
@@ -158,18 +158,18 @@ or
 depending on whether the exit status of the executable was 0 or not.
 .
 .TP
-.B %4r
+.B $4r
 is like
-.B %r
+.B $r
 but padded with spaces on the right so that it always four bytes long.
 (This is the only time when a number may be specified.)
 .
 .TP
-.B %c
+.B $c
 is replaced by the command (and any arguments).
 .
 .TP
-.B %J
+.B $J
 is replaced by
 .I DIR
 if
@@ -177,7 +177,7 @@ if
 was specified.
 .
 .TP
-.B %j
+.B $j
 is replaced by the trailing component of
 .I DIR
 if
@@ -185,15 +185,15 @@ if
 was specified.
 .
 .TP
-.B %u
+.B $u
 is replaced by the user name.
 .
 .TP
-.B %h
+.B $h
 is replaced by the host name up to the first `.'.
 .
 .TP
-.B %H
+.B $H
 is replaced by the full host name.
 .\" -----------------------------------------------------------------
 .

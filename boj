@@ -117,10 +117,10 @@ fatal() {
 }
 
 expand-escapes() {
-    sed -e "s#%r#${result}#"    -e "s#%4r#$(printf '%-4.4s' $result)#" -e "s#%R#${err}#"     \
-        -e "s#%j#${projdir:t}#" -e "s#%J#${projdir}#" \
-        -e "s#%u#${user}#"      -e "s#%h#${host}#"    \
-        -e "s#%H#${HOST}#"      -e "s#%c#${cmdline}#"
+    sed -e "s#\\\$r#${result}#"    -e "s#\\\$4r#$(printf '%-4.4s' $result)#" -e "s#\\\$R#${err}#"     \
+        -e "s#\\\$j#${projdir:t}#" -e "s#\\\$J#${projdir}#" \
+        -e "s#\\\$u#${user}#"      -e "s#\\\$h#${host}#"    \
+        -e "s#\\\$H#${HOST}#"      -e "s#\\\$c#${cmdline}#"
 }
 
 main "$@"
