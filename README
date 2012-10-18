@@ -55,7 +55,7 @@ Set the mail subject and recipient:
 
 Indicate the job's success or failure in the subject line:
 
-    $ boj -s 'Job result: %r' ...
+    $ boj -s 'Job result: $r' ...
 
 Run the _run_ executable in a "project directory":
 
