@@ -8,7 +8,7 @@ typeset nomail=true alwaysmail=false keepout=false
 typeset user=$(print -P %n)
 typeset host=$(print -P %m)
 typeset HOST=$(print -P %M)
-typeset mailfrom=${MAILFROM:-$user} mailto=${MAILTO:-$user} mailsubj=${MAILSUBJ:-'[%r] %c'}
+typeset mailfrom=${MAILFROM:-$user} mailto=${MAILTO:-$user} mailsubj=${MAILSUBJ:-'[$r] $c'}
 typeset timestamp='%D{%Y%m%dT%H%M%S}'
 
 typeset begin="$(print -P $timestamp)"
@@ -108,7 +108,7 @@ EOS
         cat $out
     fi > $msg
     /usr/sbin/sendmail -oi -t < $msg
-    # rm -f $msg
+    $keepout || rm -f $msg
 }
 
 fatal() {
@@ -117,7 +117,8 @@ fatal() {
 }
 
 expand-escapes() {
-    sed -e "s#\\\$r#${result}#"    -e "s#\\\$4r#$(printf '%-4.4s' $result)#" -e "s#\\\$R#${err}#"     \
+    sed -e "s#\\\$r#${result}#"    -e "s#\\\$R#${err}#"     \
+        -e "s#\\\$4r#$(printf '%-4.4s' $result)#"           \
         -e "s#\\\$j#${projdir:t}#" -e "s#\\\$J#${projdir}#" \
         -e "s#\\\$u#${user}#"      -e "s#\\\$h#${host}#"    \
         -e "s#\\\$H#${HOST}#"      -e "s#\\\$c#${cmdline}#"
