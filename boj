@@ -1,13 +1,10 @@
 #!/bin/zsh
 
 metadata() {
-    perl -pe 'BEGIN { undef $/ } s/^... @(\w+)\n/$1 /mgs' <<EOS
-.\" @VERSION
-0.6.0
-.\" @AUTHOR
-Paul Hoffman <paul@flo.org>
-.\" @COPYRIGHT
-Copyright 2012 Fenway Libraries Online.
+    cat <<EOS
+    @@VERSION 0.6.0
+    @@AUTHOR Paul Hoffman <paul@flo.org>
+    @@COPYRIGHT Copyright 2012 Fenway Libraries Online.
 EOS
 }
 
@@ -152,10 +149,10 @@ fatal() {
 }
 
 show-version() {
-    typeset key VERSION AUTHOR COPYRIGHT
-    metadata | fgrep VERSION   | read key VERSION
-    metadata | fgrep AUTHOR    | read key AUTHOR
-    metadata | fgrep COPYRIGHT | read key COPYRIGHT
+    typeset x VERSION AUTHOR COPYRIGHT
+    metadata | fgrep '@@VERSION'   | read x VERSION
+    metadata | fgrep '@@AUTHOR'    | read x AUTHOR
+    metadata | fgrep '@@COPYRIGHT' | read x COPYRIGHT
     cat <<EOS
 boj $VERSION by $AUTHOR
 $COPYRIGHT
