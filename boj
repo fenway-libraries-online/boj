@@ -4,7 +4,7 @@ typeset dir=/ projdir
 typeset out=${TMPDIR:-/tmp}/boj.$$.out
 typeset log=/var/log/boj.log
 typeset msg=${TMPDIR:-/tmp}/boj.$$.msg
-typeset nomail=true alwaysmail=false keepout=false
+typeset nomail=true alwaysmail=false keepout=false showenv=false
 typeset user=$(print -P %n)
 typeset host=$(print -P %m)
 typeset HOST=$(print -P %M)
@@ -19,12 +19,13 @@ typeset cmdline cmd
 [[ -w $log || -w $log:h ]] || log=~/.bojlog
 
 main() {
-    while getopts :nmkrLd:o:l:f:t:s:p: opt; do
+    while getopts :nmkreLd:o:l:f:t:s:p: opt; do
         case $opt in
             (n) nomail=true      ;;
             (m) alwaysmail=true  ;;
             (k) keepout=true     ;;
             (r) keepout=false    ;;
+            (e) showenv=true     ;;
             (L) log=~/.bojlog    ;;
             (d) dir=$OPTARG      ;;
             (o) out=$OPTARG
@@ -95,18 +96,24 @@ usage() {
 }
 
 send-notification() {
-    if [[ -z $projdir ]]; then
-        expand-escapes <<EOS
+    {
+        if [[ -z $projdir ]]; then
+            expand-escapes <<EOS
 From: $mailfrom
 To: $mailto
 Subject: $mailsubj
 
 EOS
+        else
+            expand-escapes < mail.$result
+        fi
+        if $showenv; then
+            print -- '# -------------------------- Environment variables -------------------------'
+            /bin/env
+            print -- '# --------------------------------------------------------------------------'
+        fi
         cat $out
-    else
-        expand-escapes < mail.$result
-        cat $out
-    fi > $msg
+    } > $msg
     /usr/sbin/sendmail -oi -t < $msg
     $keepout || rm -f $msg
 }
