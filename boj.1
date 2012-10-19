@@ -82,7 +82,7 @@ which can be overridden by option
 Log the result in
 .I FILE
 rather than
-.B /var/log/boj.log
+.BR /var/log/boj.log .
 The log entry consists of the result code
 .B OK
 or
@@ -115,7 +115,11 @@ Send the notification to
 .BI -s " STRING"
 Use
 .I STRING
-as the subject of the notification.
+as the subject of the notification.  The default subject is
+.B [$H]: [$r] $c
+(see
+.B OUTPUT
+below for a key to the embedded variables).
 .
 .TP
 .BI -p " DIR"
@@ -123,32 +127,79 @@ Use
 .I DIR
 as the
 .BR "project directory" .
-This sets the options
+(see below).
+.
+.\" -----------------------------------------------------------------
+.
+.SH PROJECTS
+.
+The
+.B -p
+option sets the following options:
+.
+.TP
 .B -d
-.IR DIR ,
-.BR -o " out,"
-.BR -l " log,"
-runs the executable at
-.IR DIR /run,
-and sends a notification using the template in
-.B mail.OK
+.I DIR
+.
+.TP
+.B -o
+out
+.
+.TP
+.B -l
+boj.log
+.
+.P
+It runs the executable at
+.IR DIR /run
+and sends a notification using the mail template in the first of the
+following files that it finds in the project directory:
+.
+.TP
+.BI mail. err
+.TP
+.BI mail. result
+.TP
+.B mail
+.
+.P
+Here,
+.I err
+is the exist status of the executable and
+.I result
+is either
+.B OK
 or
-.B mail.FAIL
-depending on whether the exit status of the executable was 0 or not.
+.B FAIL
+depending on whether the exit status was zero or not.
+.P
+These files must contain a complete and valid mail header followed by a blank
+line; optional lines that follow the blank line will become part of the message
+body.
+.P
+If none of these files is found, a sensible default is used.
+.
+.P
 Options
 .BR -f ,
 .BR -t ,
 and
 .B -s
-are ignored.  The files
+are ignored unless a mail template could not be found.
+.
+.P
+Each of the files
 .BR keepout ,
 .BR alwaysmail ,
+.BR nomail ,
 and
-.B nomail
-set the corresponding options if they exist.
+.BR showenv ,
+if it exists, sets the corresponding option.
+.
+.\" -----------------------------------------------------------------
 .
 .SH OUTPUT
-The following strings are expanded in the header of a message:
+The following variables are expanded in the header of a message:
 .
 .TP
 .B $R
@@ -203,12 +254,21 @@ is replaced by the full host name.
 .\" -----------------------------------------------------------------
 .
 .\" .SH DIAGNOSTICS
+.SH VERSION 
+.\" @VERSION
+0.6.0
+.
 .SH AUTHOR
+.\" @AUTHOR
 Paul Hoffman <paul@flo.org>
 .
 .SH COPYRIGHT
-Copyright 2012 Fenway Libraries Online.  Released under the terms of the GNU
+.\" @COPYRIGHT
+Copyright 2012 Fenway Libraries Online.
+.P
+Released under the terms of the GNU
 General Public License, version 2 -- see the file LICENSE for details.
+.
 .\" .SH "SEE ALSO"
 .\" .BR bar (1),
 
