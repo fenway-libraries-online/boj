@@ -2,8 +2,9 @@ include config.mk
 
 SOURCES = $(PROG) $(PROG).1 Makefile README LICENSE config.mk example
 
-default:
-	@echo "You must specify a target: install or dist."
+metadata:
+	@VERSION="$(VERSION)" AUTHOR="$(AUTHOR)" COPYRIGHT="$(COPYRIGHT)" \
+		perl -i -pe 'BEGIN { undef $$/ } s/^(\.\\" @(\w+)\n)([^\n]*)/$$1$$ENV{$$2}/mgs' boj boj.1
 
 install: $(PROG) $(PROG).1
 	mkdir -p $(BINDIR) $(MANDIR)
@@ -22,4 +23,4 @@ $(PROG)-$(VERSION): $(SOURCES)
 clean:
 	rm -Rf $(PROG)-$(VERSION)*
 
-.PHONY: default install dist clean
+.PHONY: default metadata install dist clean
