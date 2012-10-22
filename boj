@@ -74,9 +74,6 @@ main() {
             cmd=./run
             cmdline="$projdir/run $*"
         fi
-        print COMMAND $cmd $@  >&2
-        print CMDLINE $cmdline >&2
-        exit 0
         out=./out
         log=./boj.log
         msg=./msg
