@@ -1,7 +1,7 @@
 .\" Process this file with
 .\" groff -man -Tascii boj.1
 .\"
-.ds @@VERSION 0.6.0
+.ds @@VERSION 0.6.1
 .ds @@AUTHOR Paul Hoffman <paul@flo.org>
 .ds @@COPYRIGHT Copyright 2012 Fenway Libraries Online.
 .
@@ -183,6 +183,44 @@ body.
 .P
 If none of these files is found, a sensible default is used.
 .
+.P
+To invoke the executable at
+.IR DIR /run
+with arguments, add them after the last option.
+.P
+To run an executable other than the file
+.B run
+in the project directory, add brackets around the executable name (or path) and
+its arguments.  For example:
+.
+.P
+.B boj -p
+.I DIR
+.B [
+.I CMD ARG...
+.B ]
+.P
+The brackets here are literals; they do not indicate optional arguments to
+.BR boj .
+They must occur as separate tokens (i.e., surrounded by whitespace) in order to
+be recognized by
+.BR boj .
+.
+If you omit the closing right bracket,
+.B ./run
+will be added as an additional option.  For example:
+.
+.P
+.B boj -p
+.I DIR
+.B [ timeout 30
+.P
+will invoke
+.P
+.B timeout 30 ./run
+.P
+from within
+.IR dir .
 .P
 Options
 .BR -f ,

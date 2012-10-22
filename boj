@@ -2,7 +2,7 @@
 
 metadata() {
     cat <<EOS
-    @@VERSION 0.6.0
+    @@VERSION 0.6.1
     @@AUTHOR Paul Hoffman <paul@flo.org>
     @@COPYRIGHT Copyright 2012 Fenway Libraries Online.
 EOS
@@ -27,6 +27,7 @@ typeset cmdline cmd
 [[ -w $log || -w $log:h ]] || log=~/.bojlog
 
 main() {
+    typeset opt
     while getopts :nmkreLd:o:l:f:t:s:p:v opt; do
         case $opt in
             (n) nomail=true      ;;
@@ -51,10 +52,33 @@ main() {
     # More setup
     if [[ -n $projdir ]]; then
         cd $projdir
-        (( $#argv == 0 )) && cmdline="run $*" || cmdline=run
+        if (( $# == 0 )); then
+            # boj -p DIR
+            cmd=./run
+            cmdline=$projdir/run
+        elif [[ $1 == '[' ]]; then
+            shift
+            if [[ ${argv[-1]} == ']' ]]; then
+                # boj -p DIR [ foo bar ] ==> exec foo bar
+                (( $# > 1 )) || usage
+                argv[-1]=()
+                cmdline="$*"
+                cmd=$1; shift
+            else
+                # boj -p DIR [ foo bar ==> exec foo bar DIR/run
+                cmd=$1; shift
+                set -- $@ ./run
+                cmdline="$cmd $*"
+            fi
+        else
+            cmd=./run
+            cmdline="$projdir/run $*"
+        fi
+        print COMMAND $cmd $@  >&2
+        print CMDLINE $cmdline >&2
+        exit 0
         out=./out
         log=./boj.log
-        cmd=./run
         msg=./msg
         [[ ! -e keepout    ]] || keepout=true
         [[ ! -e alwaysmail ]] || alwaysmail=true
@@ -122,12 +146,14 @@ EOS
             elif [[ -e mail ]]; then
                 cat mail
             else
+                typeset projname='$j'
+                [[ ! -f PROJNAME ]] || projname="$(head -n1 < PROJNAME)"
                 cat <<EOS
 From: $mailfrom
 To: $mailto
-Subject: \$H: [\$r] \$J
+Subject: \$h: [\$r] $projname
 
-No mail template was found for this project.  Job output follows...
+Output for job \$J follows...
 
 EOS
             fi | expand-escapes
