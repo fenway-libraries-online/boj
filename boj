@@ -12,7 +12,7 @@ typeset dir=/ projdir
 typeset out=${TMPDIR:-/tmp}/boj.$$.out
 typeset log=/var/log/boj.log
 typeset msg=${TMPDIR:-/tmp}/boj.$$.msg
-typeset nomail=true alwaysmail=false keepout=false showenv=false
+typeset nomail=false alwaysmail=false keepout=false showenv=false
 typeset user=$(print -P %n)
 typeset host=$(print -P %m)
 typeset HOST=$(print -P %M)
