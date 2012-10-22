@@ -27,6 +27,7 @@ $(PROG)-$(VERSION).tar.gz: $(PROG)-$(VERSION)
 	tar -czf $@ $<
 
 $(PROG)-$(VERSION): metadata $(SOURCES)
+	rm -Rf $@
 	mkdir $@
 	cp -r $(SOURCES) $@/
 
