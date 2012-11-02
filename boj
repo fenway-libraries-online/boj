@@ -2,7 +2,7 @@
 
 metadata() {
     cat <<EOS
-    @@VERSION 0.6.1
+    @@VERSION 0.6.3
     @@AUTHOR Paul Hoffman <paul@flo.org>
     @@COPYRIGHT Copyright 2012 Fenway Libraries Online.
 EOS
@@ -12,6 +12,7 @@ typeset dir=/ projdir
 typeset out=${TMPDIR:-/tmp}/boj.$$.out
 typeset log=/var/log/boj.log
 typeset msg=${TMPDIR:-/tmp}/boj.$$.msg
+typeset guard
 typeset nomail=false alwaysmail=false keepout=false showenv=false
 typeset user=$(print -P %n)
 typeset host=$(print -P %m)
@@ -20,7 +21,7 @@ typeset mailfrom=${MAILFROM:-$user} mailto=${MAILTO:-$user} mailsubj=${MAILSUBJ:
 typeset timestamp='%D{%Y%m%dT%H%M%S}'
 
 typeset begin="$(print -P $timestamp)"
-typeset result=FAIL
+typeset result
 integer err=0
 typeset cmdline cmd
 
@@ -28,7 +29,7 @@ typeset cmdline cmd
 
 main() {
     typeset opt
-    while getopts :nmkreLd:o:l:f:t:s:p:v opt; do
+    while getopts :nmkreLd:g:o:l:f:t:s:p:v opt; do
         case $opt in
             (n) nomail=true      ;;
             (m) alwaysmail=true  ;;
@@ -37,6 +38,7 @@ main() {
             (e) showenv=true     ;;
             (L) log=~/.bojlog    ;;
             (d) dir=$OPTARG      ;;
+            (g) guard=$OPTARG    ;;
             (o) out=$OPTARG
                 keepout=true     ;;
             (l) log=$OPTARG      ;;
@@ -77,6 +79,7 @@ main() {
         out=./out
         log=./boj.log
         msg=./msg
+        guard=./norun
         [[ ! -e keepout    ]] || keepout=true
         [[ ! -e alwaysmail ]] || alwaysmail=true
         [[ ! -e nomail     ]] || nomail=true
@@ -96,7 +99,9 @@ main() {
         err=$?
         set +e  # Turn off automatic exit on error
         typeset end="$(print -P $timestamp)"
-        (( err != 0 )) || result=OK
+        if [[ -z $result ]]; then
+            (( err != 0 )) || result=OK
+        fi
         printf '%-4.4s %s %s %s\n' $result $begin $end $cmdline >> $log
         # Send notification
         typeset notify=false
@@ -115,8 +120,13 @@ main() {
     # Make sure we got a command to execute
     [[ -n $cmd ]] || usage
 
-    # Run it
-    $cmd $@
+    # Run it (unless the guard file exists)
+    if [[ -n $guard && -e $guard ]]; then
+        result=SKIP
+    else
+        result=FAIL
+        $cmd $@
+    fi
 
     # Everything else happens in TRAPEXIT
 }

@@ -1,5 +1,5 @@
 PROG      = boj
-VERSION   = 0.6.2
+VERSION   = 0.6.3
 AUTHOR    = Paul Hoffman <paul@flo.org>
 COPYRIGHT = Copyright 2012 Fenway Libraries Online.
 

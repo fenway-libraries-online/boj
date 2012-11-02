@@ -1,7 +1,7 @@
 .\" Process this file with
 .\" groff -man -Tascii boj.1
 .\"
-.ds @@VERSION 0.6.1
+.ds @@VERSION 0.6.3
 .ds @@AUTHOR Paul Hoffman <paul@flo.org>
 .ds @@COPYRIGHT Copyright 2012 Fenway Libraries Online.
 .
@@ -69,6 +69,13 @@ any output that is sent via mail.
 Change to
 .I DIR
 before running the job.
+.
+.TP
+.BI -g " FILE"
+Skip the job if
+.I FILE
+exists.  The log file will record status
+.BR SKIP .
 .
 .TP
 .BI -o " FILE"
@@ -144,6 +151,10 @@ option sets the following options:
 .TP
 .B -d
 .I DIR
+.
+.TP
+.B -g
+norun
 .
 .TP
 .B -o
