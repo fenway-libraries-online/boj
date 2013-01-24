@@ -1,28 +1,19 @@
 #!/bin/zsh
 
-metadata() {
-    cat <<EOS
-    @@VERSION 0.6.3
-    @@AUTHOR Paul Hoffman <paul@flo.org>
-    @@COPYRIGHT Copyright 2012 Fenway Libraries Online.
-EOS
-}
-
 typeset dir=/ projdir
 typeset out=${TMPDIR:-/tmp}/boj.$$.out
 typeset log=/var/log/boj.log
 typeset msg=${TMPDIR:-/tmp}/boj.$$.msg
 typeset guard
-typeset nomail=false alwaysmail=false keepout=false showenv=false
+typeset nomail=false alwaysmail=false keepout=false
 typeset user=$(print -P %n)
 typeset host=$(print -P %m)
 typeset HOST=$(print -P %M)
 typeset mailfrom=${MAILFROM:-$user} mailto=${MAILTO:-$user} mailsubj=${MAILSUBJ:-'$H: [$r] $c'}
 typeset timestamp='%D{%Y%m%dT%H%M%S}'
 
-typeset begin="$(print -P $timestamp)"
+typeset begin="$(print -P $timestamp)" end
 typeset result
-integer err=0
 typeset cmdline cmd
 
 [[ -w $log || -w $log:h ]] || log=~/.bojlog
@@ -35,7 +26,6 @@ main() {
             (m) alwaysmail=true  ;;
             (k) keepout=true     ;;
             (r) keepout=false    ;;
-            (e) showenv=true     ;;
             (L) log=~/.bojlog    ;;
             (d) dir=$OPTARG      ;;
             (g) guard=$OPTARG    ;;
@@ -53,7 +43,15 @@ main() {
 
     # More setup
     if [[ -n $projdir ]]; then
-        cd $projdir
+        cd $projdir || exit 2
+        out=./boj.out
+        log=./boj.log
+        msg=./boj.msg
+        guard=./boj.norun
+        [[ ! -e boj.keepout    ]] || keepout=true
+        [[ ! -e boj.alwaysmail ]] || alwaysmail=true
+        [[ ! -e boj.nomail     ]] || nomail=true
+        # Figure out the command to execute, and what args to give it
         if (( $# == 0 )); then
             # boj -p DIR
             cmd=./run
@@ -76,14 +74,6 @@ main() {
             cmd=./run
             cmdline="$projdir/run $*"
         fi
-        out=./out
-        log=./boj.log
-        msg=./msg
-        guard=./norun
-        [[ ! -e keepout    ]] || keepout=true
-        [[ ! -e alwaysmail ]] || alwaysmail=true
-        [[ ! -e nomail     ]] || nomail=true
-        [[ ! -e showenv    ]] || showenv=true
     else
         (( $#argv > 0 )) || usage
         cd $dir
@@ -91,44 +81,50 @@ main() {
         cmd=$1; shift
     fi
 
+    #  If something fails, we exit -- after calling our exit handler, which
+    #  takes care of logging and notification.
+    set -e
+    trap finish EXIT
+
     # Make sure all output goes to the designated file
     exec > $out 2>&1
 
-    # Set our exit handler, which takes care of logging and notification
-    TRAPEXIT() {
-        err=$?
-        set +e  # Turn off automatic exit on error
-        typeset end="$(print -P $timestamp)"
-        if [[ -z $result ]]; then
-            (( err != 0 )) || result=OK
-        fi
-        printf '%-4.4s %s %s %s\n' $result $begin $end $cmdline >> $log
-        # Send notification
-        typeset notify=false
-        if (( err != 0 )) || $alwaysmail; then
-            notify=true
-        elif [[ -s $out ]] && ! $nomail; then
-            notify=true
-        fi
-        ! $notify || send-notification
-        $keepout || rm -f $out
-    }
-
-    # Automatically exit if a command fails
-    set -e
-
-    # Make sure we got a command to execute
-    [[ -n $cmd ]] || usage
-
     # Run it (unless the guard file exists)
+    integer err
     if [[ -n $guard && -e $guard ]]; then
         result=SKIP
+        err=0
     else
-        result=FAIL
         $cmd $@
+        err=$?
     fi
 
-    # Everything else happens in TRAPEXIT
+    # Everything else happens in finish
+    trap - EXIT
+    finish $err
+}
+
+finish() {
+    integer err=${1:-$?}
+    set +e  # Turn off automatic exit on error
+    end="$(print -P $timestamp)"
+    if [[ -z $result ]]; then
+        if (( err == 0 )); then
+            result=OK
+        else
+            result=FAIL
+        fi
+    fi
+    printf '%-4.4s %s %s %s\n' $result $begin $end $cmdline >> $log
+    # Send notification
+    typeset notify=false
+    if (( err != 0 )) || $alwaysmail; then
+        notify=true
+    elif [[ -s $out ]] && ! $nomail; then
+        notify=true
+    fi
+    ! $notify || send-notification
+    $keepout || rm -f $out
 }
 
 usage() {
@@ -146,15 +142,15 @@ Subject: $mailsubj
 
 EOS
         else
-            if [[ -e mail.$err ]]; then
-                cat mail.$err
-            elif [[ -e mail.$result ]]; then
-                cat mail.$result
-            elif [[ -e mail ]]; then
-                cat mail
+            if [[ -e boj.mail.$err ]]; then
+                cat boj.mail.$err
+            elif [[ -e boj.mail.$result ]]; then
+                cat boj.mail.$result
+            elif [[ -e boj.mail ]]; then
+                cat boj.mail
             else
                 typeset projname='$j'
-                [[ ! -f PROJNAME ]] || projname="$(head -n1 < PROJNAME)"
+                [[ ! -f boj.name ]] || projname="$(head -n1 < boj.name)"
                 cat <<EOS
 From: $mailfrom
 To: $mailto
@@ -164,11 +160,6 @@ Output for job \$J follows...
 
 EOS
             fi | expand-escapes
-        fi
-        if $showenv; then
-            print -- '# -------------------------- Environment variables -------------------------'
-            env
-            print -- '# --------------------------------------------------------------------------'
         fi
         cat $out
     } > $msg
@@ -182,13 +173,9 @@ fatal() {
 }
 
 show-version() {
-    typeset x VERSION AUTHOR COPYRIGHT
-    metadata | fgrep '@@VERSION'   | read x VERSION
-    metadata | fgrep '@@AUTHOR'    | read x AUTHOR
-    metadata | fgrep '@@COPYRIGHT' | read x COPYRIGHT
     cat <<EOS
-boj $VERSION by $AUTHOR
-$COPYRIGHT
+boj __VERSION__ by __AUTHOR__
+__COPYRIGHT__
 Licensed under the terms of the GNU General Public License, version 2.
 See LICENSE for details.
 EOS
@@ -200,6 +187,7 @@ expand-escapes() {
         -e "s#\\\$4r#$(printf '%-4.4s' $result)#"           \
         -e "s#\\\$j#${projdir:t}#" -e "s#\\\$J#${projdir}#" \
         -e "s#\\\$u#${user}#"      -e "s#\\\$h#${host}#"    \
+        -e "s#\\\$b#${begin}#"     -e "s#\\\$e#${end}#"     \
         -e "s#\\\$H#${HOST}#"      -e "s#\\\$c#${cmdline}#"
 }
 

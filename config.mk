@@ -1,7 +1,7 @@
 PROG      = boj
-VERSION   = 0.6.3
+VERSION   = 0.6.6
 AUTHOR    = Paul Hoffman <paul@flo.org>
-COPYRIGHT = Copyright 2012 Fenway Libraries Online.
+COPYRIGHT = Copyright 2012-2013 Fenway Libraries Online.
 
 PREFIX  = /usr/local
 BINDIR  = $(PREFIX)/bin

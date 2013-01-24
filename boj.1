@@ -1,7 +1,7 @@
 .\" Process this file with
 .\" groff -man -Tascii boj.1
 .\"
-.ds @@VERSION 0.6.3
+.ds @@VERSION 0.6.5
 .ds @@AUTHOR Paul Hoffman <paul@flo.org>
 .ds @@COPYRIGHT Copyright 2012 Fenway Libraries Online.
 .
@@ -10,7 +10,7 @@
 .
 .SH NAME
 .
-boj \- run a batch job and mail output
+boj \- run a command and mail output to the user
 .
 .
 .\" -----------------------------------------------------------------
@@ -33,7 +33,12 @@ boj \- run a batch job and mail output
 .B boj
 runs
 .I COMMAND
-for a user and mails its output (if any) to the user.
+and sends a message to the user containing its output (if any) and a meaningful
+subject line.  No message is sent if  
+.I COMMAND
+exits normally (with status 0)
+.B and
+does not produce any output.
 .
 .\" -----------------------------------------------------------------
 .
@@ -43,7 +48,7 @@ for a user and mails its output (if any) to the user.
 .B -n
 Don't send mail unless
 .I COMMAND
-exited with non-zero status.
+exited with non-zero status, regardless of whether it produced any output.
 .
 .TP
 .B -m
@@ -57,12 +62,7 @@ Keep the output file.
 .
 .TP
 .B -r
-Remove the output file before exiting.
-.
-.TP
-.B -e
-Include a banner listing environment variables and their values at the top of
-any output that is sent via mail.
+Remove the output file before exiting.  This is the default.
 .
 .TP
 .BI -d " DIR"
@@ -95,9 +95,10 @@ Log the result in
 rather than
 .BR /var/log/boj.log .
 The log entry consists of the result code
-.B OK
+.BR OK ,
+.BR FAIL ,
 or
-.B FAIL
+.B SKIP
 followed by the time execution began, the time it ended,
 and finally
 .I COMMAND
@@ -109,7 +110,9 @@ Log the result in
 .BR ~/.bojlog .
 This is the default if
 .B /var/log/boj.log
-is not writeable.
+is not writeable and
+.B -p
+is not specified.
 .
 .TP
 .BI -f " ADDRESS"
@@ -145,7 +148,7 @@ as the
 .SH PROJECTS
 .
 The
-.B -p
+.BI -p " DIR"
 option sets the following options:
 .
 .TP
@@ -154,11 +157,11 @@ option sets the following options:
 .
 .TP
 .B -g
-norun
+boj.norun
 .
 .TP
 .B -o
-out
+boj.out
 .
 .TP
 .B -l
@@ -171,26 +174,30 @@ and sends a notification using the mail template in the first of the
 following files that it finds in the project directory:
 .
 .TP
-.BI mail. err
+.BI boj.mail. err
 .TP
-.BI mail. result
+.BI boj.mail. result
 .TP
-.B mail
+.B boj.mail
 .
 .P
 Here,
 .I err
-is the exist status of the executable and
+is the exit status of the executable and
 .I result
 is either
 .B OK
 or
 .B FAIL
-depending on whether the exit status was zero or not.
+depending on whether the exit status was zero or not.  (No mail is ever sent
+if the status is
+.BR SKIP ,
+i.e., if the job is skipped.
+.
 .P
-These files must contain a complete and valid mail header followed by a blank
-line; optional lines that follow the blank line will become part of the message
-body.
+A mail template must contain a complete and valid mail header followed by a
+blank line, but no attempt is made to verify this.  Any lines that follow the
+blank line will become part of the message body.
 .P
 If none of these files is found, a sensible default is used.
 .
@@ -232,6 +239,7 @@ will invoke
 .P
 from within
 .IR dir .
+.
 .P
 Options
 .BR -f ,
@@ -241,13 +249,25 @@ and
 are ignored unless a mail template could not be found.
 .
 .P
-Each of the files
-.BR keepout ,
-.BR alwaysmail ,
-.BR nomail ,
-and
-.BR showenv ,
-if it exists, sets the corresponding option.
+If the file
+.B boj.keepout
+exists, the
+.B -k
+option is set.
+.
+.P
+If the file
+.B boj.alwaysmail
+exists, the
+.B -m
+option is set.
+.
+.P
+If the file
+.B boj.nomail
+exists, the
+.B -n
+option is set.
 .
 .\" -----------------------------------------------------------------
 .
@@ -261,7 +281,7 @@ is replaced by the exit status of the executable.
 .TP
 .B $r
 is replaced by
-.B OK
+.BR OK
 or
 .B FAIL
 depending on whether the exit status of the executable was 0 or not.
@@ -286,12 +306,14 @@ if
 was specified.
 .
 .TP
-.B $j
-is replaced by the trailing component of
-.I DIR
-if
+If
 .BI -p " DIR"
-was specified.
+was specified,
+.B $j
+is replaced by the contents of
+.IR DIR /boj.name
+if it exists, otherwise by the trailing component of
+.IR DIR .
 .
 .TP
 .B $u
@@ -304,20 +326,26 @@ is replaced by the host name up to the first `.'.
 .TP
 .B $H
 is replaced by the full host name.
+.
+.TP
+.B $b
+is replaced by a timestamp (YYYYmmddTHHMMSS) indicating when the job began.
+.
+.TP
+.B $e
+is replaced by a timestamp (YYYYmmddTHHMMSS) indicating when the job ended.
+.
 .\" -----------------------------------------------------------------
 .
 .\" .SH DIAGNOSTICS
 .SH VERSION 
-.\" @VERSION 0.6.0
-\*[@@VERSION]
+__VERSION__
 .
 .SH AUTHOR
-.\" @AUTHOR Paul Hoffman <paul@flo.org>
-\*[@@AUTHOR]
+__AUTHOR__
 .
 .SH COPYRIGHT
-.\" @COPYRIGHT Copyright 2012 Fenway Libraries Online.
-\*[@@COPYRIGHT]
+__COPYRIGHT__
 .P
 Released under the terms of the GNU
 General Public License, version 2 -- see the file LICENSE for details.
