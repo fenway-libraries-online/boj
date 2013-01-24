@@ -47,10 +47,10 @@ main() {
         out=./boj.out
         log=./boj.log
         msg=./boj.msg
-        guard=./boj.norun
-        [[ ! -e boj.keepout    ]] || keepout=true
-        [[ ! -e boj.alwaysmail ]] || alwaysmail=true
-        [[ ! -e boj.nomail     ]] || nomail=true
+        guard=./norun
+        [[ ! -e keepout    ]] || keepout=true
+        [[ ! -e alwaysmail ]] || alwaysmail=true
+        [[ ! -e nomail     ]] || nomail=true
         # Figure out the command to execute, and what args to give it
         if (( $# == 0 )); then
             # boj -p DIR
@@ -142,15 +142,14 @@ Subject: $mailsubj
 
 EOS
         else
-            if [[ -e boj.mail.$err ]]; then
-                cat boj.mail.$err
-            elif [[ -e boj.mail.$result ]]; then
-                cat boj.mail.$result
-            elif [[ -e boj.mail ]]; then
-                cat boj.mail
+            if [[ -e mail.$err ]]; then
+                cat mail.$err
+            elif [[ -e mail.$result ]]; then
+                cat mail.$result
+            elif [[ -e mail ]]; then
+                cat mail
             else
                 typeset projname='$j'
-                [[ ! -f boj.name ]] || projname="$(head -n1 < boj.name)"
                 cat <<EOS
 From: $mailfrom
 To: $mailto

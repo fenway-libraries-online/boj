@@ -1,9 +1,6 @@
 .\" Process this file with
 .\" groff -man -Tascii boj.1
 .\"
-.ds @@VERSION 0.6.5
-.ds @@AUTHOR Paul Hoffman <paul@flo.org>
-.ds @@COPYRIGHT Copyright 2012 Fenway Libraries Online.
 .
 .TH BOJ 1 "boj"
 .
@@ -157,7 +154,7 @@ option sets the following options:
 .
 .TP
 .B -g
-boj.norun
+norun
 .
 .TP
 .B -o
@@ -174,11 +171,11 @@ and sends a notification using the mail template in the first of the
 following files that it finds in the project directory:
 .
 .TP
-.BI boj.mail. err
+.RI mail. err
 .TP
-.BI boj.mail. result
+.RI mail. result
 .TP
-.B boj.mail
+.R mail
 .
 .P
 Here,
@@ -250,21 +247,21 @@ are ignored unless a mail template could not be found.
 .
 .P
 If the file
-.B boj.keepout
+.B keepout
 exists, the
 .B -k
 option is set.
 .
 .P
 If the file
-.B boj.alwaysmail
+.B alwaysmail
 exists, the
 .B -m
 option is set.
 .
 .P
 If the file
-.B boj.nomail
+.B nomail
 exists, the
 .B -n
 option is set.
@@ -306,14 +303,12 @@ if
 was specified.
 .
 .TP
-If
-.BI -p " DIR"
-was specified,
 .B $j
-is replaced by the contents of
-.IR DIR /boj.name
-if it exists, otherwise by the trailing component of
-.IR DIR .
+is replaced by the trailing component of
+.I DIR
+if
+.BI -p " DIR"
+was specified.
 .
 .TP
 .B $u
