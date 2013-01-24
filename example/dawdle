@@ -1,0 +1,5 @@
+#!/bin/zsh
+
+cmd=$1; shift
+$cmd $@
+sleep 10

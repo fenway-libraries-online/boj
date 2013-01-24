@@ -1,3 +1,21 @@
 #!/bin/zsh
 
-killafter 1s ./dawdle date
+killafter() {
+    typeset sec=$1 cmd=$2; shift 2
+    integer selfpid=$$
+
+    $cmd $@ &
+    integer progpid=$!
+
+    (
+        sleep $sec
+        kill $progpid > /dev/null 2>&1
+        kill $selfpid > /dev/null 2>&1
+    ) &
+    integer waitpid=$!
+
+    wait $progpid
+    kill $waitpid > /dev/null 2>&1
+}
+
+killafter 1 ./dawdle date
