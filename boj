@@ -43,37 +43,7 @@ main() {
 
     # More setup
     if [[ -n $projdir ]]; then
-        cd $projdir || exit 2
-        out=./boj.out
-        log=./boj.log
-        msg=./boj.msg
-        guard=./norun
-        [[ ! -e keepout    ]] || keepout=true
-        [[ ! -e alwaysmail ]] || alwaysmail=true
-        [[ ! -e nomail     ]] || nomail=true
-        # Figure out the command to execute, and what args to give it
-        if (( $# == 0 )); then
-            # boj -p DIR
-            cmd=./run
-            cmdline=$projdir/run
-        elif [[ $1 == '[' ]]; then
-            shift
-            if [[ ${argv[-1]} == ']' ]]; then
-                # boj -p DIR [ foo bar ] ==> exec foo bar
-                (( $# > 1 )) || usage
-                argv[-1]=()
-                cmdline="$*"
-                cmd=$1; shift
-            else
-                # boj -p DIR [ foo bar ==> exec foo bar DIR/run
-                cmd=$1; shift
-                set -- $@ ./run
-                cmdline="$cmd $*"
-            fi
-        else
-            cmd=./run
-            cmdline="$projdir/run $*"
-        fi
+        use-projdir
     else
         (( $#argv > 0 )) || usage
         cd $dir
@@ -102,6 +72,40 @@ main() {
     # Everything else happens in finish
     trap - EXIT
     finish $err
+}
+
+use-projdir() {
+    cd $projdir || exit 2
+    out=./boj.out
+    log=./boj.log
+    msg=./boj.msg
+    guard=./norun
+    [[ ! -e keepout    ]] || keepout=true
+    [[ ! -e alwaysmail ]] || alwaysmail=true
+    [[ ! -e nomail     ]] || nomail=true
+    # Figure out the command to execute, and what args to give it
+    if (( $# == 0 )); then
+        # boj -p DIR
+        cmd=./run
+        cmdline=$projdir/run
+    elif [[ $1 == '[' ]]; then
+        shift
+        if [[ ${argv[-1]} == ']' ]]; then
+            # boj -p DIR [ foo bar ] ==> exec foo bar
+            (( $# > 1 )) || usage
+            argv[-1]=()
+            cmdline="$*"
+            cmd=$1; shift
+        else
+            # boj -p DIR [ foo bar ==> exec foo bar DIR/run
+            cmd=$1; shift
+            set -- $@ ./run
+            cmdline="$cmd $*"
+        fi
+    else
+        cmd=./run
+        cmdline="$projdir/run $*"
+    fi
 }
 
 finish() {
