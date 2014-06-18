@@ -1,0 +1,304 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use POSIX qw(strftime);
+use IO::Scalar;
+use Getopt::Long
+    qw(:config posix_default gnu_compat require_order bundling no_ignore_case);
+
+sub fatal;
+sub usage;
+sub now;
+
+my $root     = '/var/local/boj';
+my $log      = '/var/log/boj.log';
+my @sendmail = qw(/usr/sbin/sendmail -oi -t);
+
+my (@cmd, %opt, %cfg);
+my ($fhlog, $fhcmd);
+my ($err, $result, $begin, $end);
+foreach (keys %ENV) {
+    if (/^BOJ_OPT_(\S+)/) {
+        $opt{lc $1} = 1;
+    }
+    elsif (/^BOJ_CFG_(\S+)/) {
+        $cfg{lc $1} = $ENV{$_};
+    }
+}
+
+start();
+run();
+finish();
+
+# --- Functions
+
+sub start {
+    $begin = now();
+    usage if !@ARGV;
+    if ($ARGV[0] =~ s/^@//) {
+        config_project(@ARGV);
+    }
+    else {
+        config_command(@ARGV);
+    }
+    $SIG{'TERM'} = $SIG{'QUIT'} = $SIG{'INT'} = \&finish;
+    open $fhlog, '>>', $cfg{'log'}
+        or die "Can't open log file $cfg{'log'}: $!";
+}
+
+sub run {
+    $err = 0;
+    if ($opt{'skip'}) {
+        $result = 'SKIP';
+        return;
+    }
+    binmode STDOUT;
+    if ($opt{'dryrun'}) {
+        print "boj: dry run: @cmd\n";
+        exit;
+    }
+    open STDIN,  '<', '/dev/null';
+    open STDOUT, '>', $cfg{'out'}
+        or die "Can't open out file $cfg{'out'}: $!";
+    open STDERR, '>&', STDOUT;
+    $SIG{'CHLD'} = 'IGNORE';
+    my $pid = open $fhcmd, '-|', @cmd;
+    die "Can't run command: $!" if !defined $pid;
+    while (<$fhcmd>) {
+        if ($. == 1 && /^\@\$\#\!\?BOJ:([A-Z]+)$/) {
+            $result = $1;
+            next;
+        }
+        print;
+    }
+    close $fhcmd;
+    wait == -1 or $err = $? >> 8;
+}
+
+sub finish {
+    %SIG = ();
+    $end = now;
+    if (!defined $result) {
+        $result = 'OK';
+    }
+    if (!$opt{'skip'} && !$opt{'dryrun'}) {
+        my $notify;
+        if ($err) {
+            $result = 'FAIL';
+            $notify = 1;
+        }
+        elsif ($opt{'alwaysmail'}) {
+            $notify = 1;
+        }
+        elsif (!$opt{'nomail'} && -s $cfg{'out'}) {
+            $notify = 1;
+        }
+        send_notification() if $notify;
+        unlink $cfg{'out'} if !$opt{'keepout'};
+    }
+    printf $fhlog "%-4.4s %s %s %s\n", $result, $begin, $end, join(' ', @cmd)
+        if !$opt{'dryrun'};
+}
+
+sub now { strftime('%Y%m%dT%H%M%S', localtime) }
+
+sub send_notification {
+    my ($fhmsg, $fhsendmail);
+    open $fhmsg, '>', $cfg{'msg'} or fatal "Can't save msg"
+        if $opt{'keepout'};
+    open $fhsendmail, '|-', @sendmail
+        or fatal "Can't send message: $!";
+    my @templates = ( "cfg/mail.$err", "cfg/mail.$result", 'cfg/mail' );
+    my $fhtemplate;
+    foreach (@templates) {
+        if (-e $_) {
+            open $fhtemplate, '<', $_ or fatal;
+            last;
+        }
+    }
+    if (!defined $fhtemplate) {
+        open $fhtemplate, '<', \<<'EOS' or fatal;
+From: $u@$H
+To: $u@$H
+Subject: $h: [$r] $c
+
+EOS
+    }
+    while (<$fhtemplate>) {
+        my $line = expand($_);
+        print $fhsendmail $line;
+        print $fhmsg $line if defined $fhmsg;
+    }
+}
+
+sub find_project {
+    my ($proj) = @_;
+    return $proj if $proj =~ m{^/\S+$};
+    my $path = $ENV{'BOJ_PATH'};
+    ($path) = glob('~/jobs') if !defined $path;
+    fatal "Can't find project $proj -- BOJ_PATH not set" if !defined $path;
+    my @found;
+    foreach (split /:+/, $path) {
+        my $dir = "$_/$proj";
+        next if ! -d $dir || ! -x _ || ! -r _;
+        push @found, $dir;
+    }
+    fatal "Can't find project $proj in BOJ_PATH" if !@found;
+    fatal "Multiple projects '$proj' in BOJ_PATH:", @found
+        if @found > 1;
+    return $found[0];
+}
+
+sub config_project {
+    # usage: boj @PROJECT
+    usage if @_ > 1;
+    my ($proj) = @_;
+    my $dir = find_project($proj);
+    chdir $dir or fatal "Can't chdir $dir: $!";
+    my $script = "$dir/run";
+    -f $script && -x _
+        or fatal "No run script in $dir";
+    foreach (qw(tmp log)) {
+        -d $_ || mkdir $_
+            or fatal "Can't mkdir $dir/$_: $!";
+    }
+    $cfg{'log'} = "$dir/log/boj.log";
+    $cfg{'out'} = "$dir/tmp/boj.out";
+    $cfg{'msg'} = "$dir/tmp/boj.msg";
+    foreach (glob('opt/*')) {
+        $opt{$1} = 1 if m{^opt/([^.]\S*)$};
+    }
+    foreach (glob('cfg/*')) {
+        $cfg{$1} = read_file($_) if m{^cfg/([^.]\S*)$};
+    }
+    @cmd = ( $script );
+}
+
+sub config_command {
+    $cfg{'log'} = -w $log ? $log : (glob('~/.bojlog'))[0] || fatal 'No writable log';
+    $cfg{'out'} = "/tmp/boj.$$.out";
+    $cfg{'msg'} = "/tmp/boj.$$.msg";
+    $opt{'keepout'}    = 0;
+    $opt{'nomail'}     = 0;
+    $opt{'alwaysmail'} = 0;
+    GetOptionsFromArray(
+        \@_,
+        'k' => \$opt{'keepout'},
+        'r' => sub { delete $opt{'keepout'} },
+        'n' => \$opt{'nomail'},
+        'm' => \$opt{'alwaysmail'},
+        'O' => sub { $cfg{'out'} = $_[1]; $opt{'keepout'} = 1 },
+        'L' => \$cfg{'log'},
+        'M' => \$cfg{'msg'},
+    ) or usage;
+    @cmd = @_;
+}
+
+sub fatal {
+    print STDERR $_, "\n" for @_;
+    exit 2;
+}
+
+=pod
+
+=head1 NAME
+
+boj - run a command and mail unexpected output to the user
+
+=head1 SYNOPSIS
+
+boj [I<OPTION>...] I<COMMAND> [I<ARG]...]
+
+boj @I<PROJDIR>
+
+=head1 DESCRIPTION
+
+B<boj> runs I<COMMAND> and sends a message to the user containing its output
+(if any) and a meaningful subject line.  No message is sent if I<COMMAND> exits
+normally (i.e., with status 0).
+
+B<boj> is intended as a cron job wrapper but may be useful in any context in
+which additional control over the reporting of command results is desired.
+
+When invoked as B<boj @>I<PROJDIR> the executable file B<run> within I<PROJDIR>
+is executed and run-time parameters are set via files within I<PROJDIR> as
+described below.  It is an error to include any command-line options or other
+arguments when invoking B<boj> in this way.
+
+=head1 OPTIONS
+
+All options may be set in two ways: either by specifying the option in the
+command line or by including an appropriately named file in an B<opt> or B<cfg>
+directory within I<PROJDIR>.
+
+=over 4
+
+=item B<-n>, B<opt/nomail>
+
+Don't send mail unless the command exited with non-zero status, regardless of
+whether it produced any output.
+
+=item B<-m>, B<opt/alwaysmail>
+
+Always send mail, regardless of whether the command exited with non-zero status
+or produced any output.
+
+=item B<-k>, B<opt/keepout>
+
+Keep the temporary output file.
+
+=item B<-d> I<DIR>
+
+Change to I<DIR> before running the command.
+
+=item B<-g> I<FILE>
+
+If I<FILE> exists, do not run the command; instead, log a B<SKIP> result.  If a
+message template is specified for B<SKIP> results then a message will be sent.
+When invoked as @I<PROJDIR> the presence of the file B<opt/skip> indicates that
+the job should be skipped.
+
+=item B<-O> I<FILE>, B<cfg/out>
+
+Write command output to I<FILE> (or the file named by the contents of
+B<cfg/out>).
+
+=item B<-M> I<FILE>, B<cfg/msg>
+
+Write the resulting message to I<FILE> (or the file named by the contents of
+B<cfg/msg>).
+
+=item B<-L> I<FILE>, B<cfg/log>
+
+Log the result in I<FILE> (or the file named by the contents of B<cfg/log>)
+rather than the usual log file (/var/log/boj.log if writeable, otherwise
+~/.bojlog).
+
+=back
+
+=head1 ENVIRONMENT
+
+Environment variables whose names take the form B<BOJ_OPT_>I<OPTION> will set
+the lower-case form of I<OPTION>.  For example, if B<BOJ_OPT_NOMAIL> is set
+then the B<nomail> option will be set.
+
+Environment variables whose names take the form B<BOJ_CFG_>I<KEY>=I<VALUE> will
+set the corresponding (lower-cased) configuration variable.  For example,
+setting B<BOJ_CFG_LOG> to C<foo> has the same effect as specifying option
+B<-l foo> on the command line.
+
+=head1 DIAGNOSTICS
+
+If I<COMMAND> (or I<PROJDIR>/run) exits with status 0, the result is logged as
+C<OK> and B<boj> exits with status 0.
+
+If the command produces any output, B<boj> checks the first line; if it has the
+following form, with I<RESULT> matching the regular expression /^[A-Z]+$/, then
+I<RESULT> will be used as the job result regardless of the command's exit
+status:
+
+@$#!?BOJ:I<RESULT>
+
+=cut
