@@ -18,4 +18,9 @@ killafter() {
     kill $waitpid > /dev/null 2>&1
 }
 
-killafter 1 ./dawdle date
+print '@$#!?BOJ:OK'
+
+exit 3
+
+killafter 1 bin/dawdle date
+true
