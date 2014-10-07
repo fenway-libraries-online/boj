@@ -5,6 +5,8 @@ use warnings;
 
 use POSIX qw(strftime);
 use IO::Scalar;
+use File::Basename qw(basename);
+use String::Expando;
 use Getopt::Long
     qw(:config posix_default gnu_compat require_order bundling no_ignore_case);
 
@@ -18,6 +20,7 @@ my @sendmail = qw(/usr/sbin/sendmail -oi -t);
 
 my (@cmd, %opt, %cfg);
 my ($fhlog, $fhcmd);
+my $projdir;
 my ($err, $result, $begin, $end);
 foreach (keys %ENV) {
     if (/^BOJ_OPT_(\S+)/) {
@@ -68,6 +71,7 @@ sub run {
     die "Can't run command: $!" if !defined $pid;
     while (<$fhcmd>) {
         if ($. == 1 && /^\@\$\#\!\?BOJ:([A-Z]+)$/) {
+            # @$#!?BOJ:<result code>
             $result = $1;
             next;
         }
@@ -126,8 +130,27 @@ Subject: $h: [$r] $c
 
 EOS
     }
+    my $expando = String::Expando->new(
+        'expando' => '\$(.)',
+        'literal' => '([^$]+)'
+    );
+    my $host = $ENV{'HOST'} || qx/hostname/; chomp $host;
+    my $HOST = $host;
+    $HOST =~ s/\..+//;
+    my ($login) = getpwuid($>);
+    my %stash = (
+        '?' => $err,
+        'r' => $result,
+        'R' => int rand 2**15,
+        'j' => basename($projdir || '.'),
+        'J' => $projdir || '.',
+        'u' => $login,
+        'h' => $host,
+        'H' => $HOST,
+    );
+    1;
     while (<$fhtemplate>) {
-        my $line = expand($_);
+        my $line = $expando->expand($_, \%stash);
         print $fhsendmail $line;
         print $fhmsg $line if defined $fhmsg;
     }
@@ -155,18 +178,17 @@ sub config_project {
     # usage: boj @PROJECT
     usage if @_ > 1;
     my ($proj) = @_;
-    my $dir = find_project($proj);
-    chdir $dir or fatal "Can't chdir $dir: $!";
-    my $script = "$dir/run";
+    $projdir = find_project($proj);
+    chdir $projdir or fatal "Can't chdir $projdir: $!";
+    my $script = "$projdir/run";
     -f $script && -x _
-        or fatal "No run script in $dir";
+        or fatal "No run script in $projdir";
     foreach (qw(tmp log)) {
-        -d $_ || mkdir $_
-            or fatal "Can't mkdir $dir/$_: $!";
+        -d $_ or mkdir $_ or fatal "Can't mkdir $projdir/$_: $!";
     }
-    $cfg{'log'} = "$dir/log/boj.log";
-    $cfg{'out'} = "$dir/tmp/boj.out";
-    $cfg{'msg'} = "$dir/tmp/boj.msg";
+    $cfg{'log'} = "$projdir/log/boj.log";
+    $cfg{'out'} = "$projdir/tmp/boj.out";
+    $cfg{'msg'} = "$projdir/tmp/boj.msg";
     foreach (glob('opt/*')) {
         $opt{$1} = 1 if m{^opt/([^.]\S*)$};
     }
@@ -174,6 +196,13 @@ sub config_project {
         $cfg{$1} = read_file($_) if m{^cfg/([^.]\S*)$};
     }
     @cmd = ( $script );
+}
+
+sub read_file {
+    my ($f) = @_;
+    open my $fh, '<', $f or die "Can't read file $f: $!";
+    local $/;
+    scalar <$fh>;
 }
 
 sub config_command {
@@ -253,7 +282,7 @@ Keep the temporary output file.
 
 Change to I<DIR> before running the command.
 
-=item B<-g> I<FILE>
+=item B<-g> I<FILE>, B<opt/skip>
 
 If I<FILE> exists, do not run the command; instead, log a B<SKIP> result.  If a
 message template is specified for B<SKIP> results then a message will be sent.
