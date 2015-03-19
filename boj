@@ -10,6 +10,12 @@ use String::Expando;
 use Getopt::Long
     qw(:config posix_default gnu_compat require_order bundling no_ignore_case);
 
+sub result($) { $_[0] => $_[0] }
+
+use constant result 'OK';
+use constant result 'FAIL';
+use constant result 'SKIP';
+
 sub fatal;
 sub usage;
 sub now;
@@ -19,7 +25,7 @@ my $log      = '/var/log/boj.log';
 my @sendmail = qw(/usr/sbin/sendmail -oi -t);
 
 my (@cmd, %opt, %cfg);
-my ($fhlog, $fhcmd);
+my $fhcmd;
 my $projdir;
 my ($err, $result, $begin, $end);
 foreach (keys %ENV) {
@@ -47,14 +53,13 @@ sub start {
         config_command(@ARGV);
     }
     $SIG{'TERM'} = $SIG{'QUIT'} = $SIG{'INT'} = \&finish;
-    open $fhlog, '>>', $cfg{'log'}
-        or die "Can't open log file $cfg{'log'}: $!";
+    $SIG{'USR1'} = sub { $result = OK; goto &finish };
 }
 
 sub run {
     $err = 0;
     if ($opt{'skip'}) {
-        $result = 'SKIP';
+        $result = SKIP;
         return;
     }
     binmode STDOUT;
@@ -64,33 +69,35 @@ sub run {
     }
     open STDIN,  '<', '/dev/null';
     open STDOUT, '>', $cfg{'out'}
-        or die "Can't open out file $cfg{'out'}: $!";
+        or fatal "Can't open out file $cfg{'out'}: $!";
     open STDERR, '>&', STDOUT;
     $SIG{'CHLD'} = 'IGNORE';
     my $pid = open $fhcmd, '-|', @cmd;
-    die "Can't run command: $!" if !defined $pid;
+    fatal "Can't run command: $!" if !defined $pid;
     while (<$fhcmd>) {
-        if ($. == 1 && /^\@\$\#\!\?BOJ:([A-Z]+)$/) {
+        if ($. == 1 && /^\@\$\#\!\?BOJ:([A-Z]+)(?: (\d+))?$/) {
             # @$#!?BOJ:<result code>
             $result = $1;
+            $err = defined($2) ? $2 : $1 eq FAIL ? 2 : $err;
             next;
         }
         print;
     }
     close $fhcmd;
     wait == -1 or $err = $? >> 8;
+    if (!defined $result) {
+        $result = $err ? FAIL : OK;
+    }
 }
 
 sub finish {
     %SIG = ();
     $end = now;
-    if (!defined $result) {
-        $result = 'OK';
-    }
+    $result = FAIL if !defined $result;
     if (!$opt{'skip'} && !$opt{'dryrun'}) {
         my $notify;
         if ($err) {
-            $result = 'FAIL';
+            $result = FAIL;
             $notify = 1;
         }
         elsif ($opt{'alwaysmail'}) {
@@ -101,9 +108,13 @@ sub finish {
         }
         send_notification() if $notify;
         unlink $cfg{'out'} if !$opt{'keepout'};
+        if (!$opt{'nolog'}) {
+            open my $fhlog, '>>', $cfg{'log'}
+                or fatal "Can't open log file $cfg{'log'}: $!";
+            printf $fhlog "%-4.4s %s %s %s\n", $result, $begin, $end, join(' ', @cmd);
+        }
     }
-    printf $fhlog "%-4.4s %s %s %s\n", $result, $begin, $end, join(' ', @cmd)
-        if !$opt{'dryrun'};
+    exit $err;
 }
 
 sub now { strftime('%Y%m%dT%H%M%S', localtime) }
@@ -183,9 +194,6 @@ sub config_project {
     my $script = "$projdir/run";
     -f $script && -x _
         or fatal "No run script in $projdir";
-    foreach (qw(tmp log)) {
-        -d $_ or mkdir $_ or fatal "Can't mkdir $projdir/$_: $!";
-    }
     $cfg{'log'} = "$projdir/log/boj.log";
     $cfg{'out'} = "$projdir/tmp/boj.out";
     $cfg{'msg'} = "$projdir/tmp/boj.msg";
@@ -195,12 +203,17 @@ sub config_project {
     foreach (glob('cfg/*')) {
         $cfg{$1} = read_file($_) if m{^cfg/([^.]\S*)$};
     }
+    if (!$opt{'dryrun'}) {
+        foreach (qw(tmp log)) {
+            -d $_ or mkdir $_ or fatal "Can't mkdir $projdir/$_: $!";
+        }
+    }
     @cmd = ( $script );
 }
 
 sub read_file {
     my ($f) = @_;
-    open my $fh, '<', $f or die "Can't read file $f: $!";
+    open my $fh, '<', $f or fatal "Can't read file $f: $!";
     local $/;
     scalar <$fh>;
 }
@@ -216,11 +229,12 @@ sub config_command {
         \@_,
         'k' => \$opt{'keepout'},
         'r' => sub { delete $opt{'keepout'} },
+        'q' => \$opt{'nolog'},
         'n' => \$opt{'nomail'},
         'm' => \$opt{'alwaysmail'},
-        'O' => sub { $cfg{'out'} = $_[1]; $opt{'keepout'} = 1 },
-        'L' => \$cfg{'log'},
-        'M' => \$cfg{'msg'},
+        'O=s' => sub { $cfg{'out'} = $_[1]; $opt{'keepout'} = 1 },
+        'L=s' => \$cfg{'log'},
+        'M=s' => \$cfg{'msg'},
     ) or usage;
     @cmd = @_;
 }
@@ -305,6 +319,10 @@ Log the result in I<FILE> (or the file named by the contents of B<cfg/log>)
 rather than the usual log file (/var/log/boj.log if writeable, otherwise
 ~/.bojlog).
 
+=item B<-q>, B<opt/nolog>
+
+Do not log anything.  This overrides B<-L> and B<cfg/log>.
+
 =back
 
 =head1 ENVIRONMENT
@@ -328,6 +346,12 @@ following form, with I<RESULT> matching the regular expression /^[A-Z]+$/, then
 I<RESULT> will be used as the job result regardless of the command's exit
 status:
 
-@$#!?BOJ:I<RESULT>
+@$#!?BOJ:I<RESULT>[ I<STATUS>]
+
+The optional I<STATUS> may be used to set the exit status of B<boj>; it does
+not affect the logged result.
+
+If B<boj> receives a B<USR1> signal, it concludes that the job was meant to be
+cancelled: it logs a successful result and returns exit status 0.
 
 =cut
