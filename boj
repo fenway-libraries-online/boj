@@ -68,6 +68,7 @@ sub run {
         print "boj: dry run: @cmd\n";
         exit;
     }
+    system qw(rm -f), glob('tmp/boj.*');
     open my $fhout, '>', $cfg{'out'}
         or fatal "Can't open out file $cfg{'out'}: $!";
     my @out;
