@@ -83,7 +83,9 @@ sub run {
         }
         print;
     }
-    close $fhcmd;
+    close $fhcmd or $err = 10;
+    close STDOUT or $err = 20;
+    close STDERR or $err = 30;
     wait == -1 or $err = $? >> 8;
     if (!defined $result) {
         $result = $err ? FAIL : OK;
@@ -120,7 +122,8 @@ sub finish {
 sub now { strftime('%Y%m%dT%H%M%S', localtime) }
 
 sub send_notification {
-    my ($fhmsg, $fhsendmail);
+    my ($fhout, $fhmsg, $fhsendmail);
+    open $fhout, '<', $cfg{'out'} or fatal "Can't read out";
     open $fhmsg, '>', $cfg{'msg'} or fatal "Can't save msg"
         if $opt{'keepout'};
     open $fhsendmail, '|-', @sendmail
@@ -159,11 +162,20 @@ EOS
         'h' => $host,
         'H' => $HOST,
     );
-    1;
+    my $eoh;
     while (<$fhtemplate>) {
         my $line = $expando->expand($_, \%stash);
+        $eoh = 1 if /^$/;
         print $fhsendmail $line;
         print $fhmsg $line if defined $fhmsg;
+    }
+    if (!$eoh) {
+        print $fhsendmail "\n";
+        print $fhmsg "\n" if defined $fhmsg;
+    }
+    while (<$fhout>) {
+        print $fhsendmail $_;
+        print $fhmsg $_ if defined $fhmsg;
     }
 }
 
