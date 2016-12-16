@@ -154,7 +154,7 @@ EOS
         'r' => $result,
         'R' => int rand 2**15,
         'j' => basename($projdir || '.'),
-        'J' => $projdir || '.',
+        'J' => $cfg{'description'} || $projdir || '.',
         'u' => $login,
         'h' => $host,
         'H' => $HOST,
