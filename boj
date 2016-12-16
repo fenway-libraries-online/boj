@@ -3,6 +3,7 @@
 use strict;
 use warnings;
 
+use IPC::Run3;
 use POSIX qw(strftime);
 use IO::Scalar;
 use File::Basename qw(basename);
@@ -67,26 +68,21 @@ sub run {
         print "boj: dry run: @cmd\n";
         exit;
     }
-    open STDIN,  '<', '/dev/null';
-    open STDOUT, '>', $cfg{'out'}
+    open my $fhout, '>', $cfg{'out'}
         or fatal "Can't open out file $cfg{'out'}: $!";
-    open STDERR, '>&', STDOUT;
-    $SIG{'CHLD'} = 'IGNORE';
-    my $pid = open $fhcmd, '-|', @cmd;
-    fatal "Can't run command: $!" if !defined $pid;
-    while (<$fhcmd>) {
-        if ($. == 1 && /^\@\$\#\!\?BOJ:([A-Z]+)(?: (\d+))?$/) {
-            # @$#!?BOJ:<result code>
-            $result = $1;
-            $err = defined($2) ? $2 : $1 eq FAIL ? 2 : $err;
-            next;
-        }
-        print;
+    my @out;
+    eval {
+        run3 \@cmd, \undef, \@out, \@out;
+        $err = 0;
+        $result = OK;
+    };
+    if (@out && $out[0] =~ /^\@\$\#\!\?BOJ:([A-Z]+)(?: (\d+))?$/) {
+        # @$#!?BOJ:<result code>[ <exit status>]
+        $result = $1;
+        $err = defined($2) ? $2 : $1 eq FAIL ? 2 : $err;
+        shift @out;
     }
-    close $fhcmd or $err = 10;
-    close STDOUT or $err = 20;
-    close STDERR or $err = 30;
-    wait == -1 or $err = $? >> 8;
+    print $fhout @out;
     if (!defined $result) {
         $result = $err ? FAIL : OK;
     }
