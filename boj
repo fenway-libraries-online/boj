@@ -161,8 +161,8 @@ EOS
     );
     my $eoh;
     while (<$fhtemplate>) {
-        my $line = $expando->expand($_, \%stash);
         $eoh = 1 if /^$/;
+        my $line = $expando->expand($_, \%stash);
         print $fhsendmail $line;
         print $fhmsg $line if defined $fhmsg;
     }
@@ -210,7 +210,7 @@ sub config_project {
         $opt{$1} = 1 if m{^opt/([^.]\S*)$};
     }
     foreach (glob('cfg/*')) {
-        $cfg{$1} = read_file($_) if m{^cfg/([^.]\S*)$};
+        $cfg{$1} = read_file_first_line($_) if m{^cfg/([^.]\S*)$};
     }
     if (!$opt{'dryrun'}) {
         foreach (qw(tmp log)) {
@@ -220,11 +220,13 @@ sub config_project {
     @cmd = ( $script );
 }
 
-sub read_file {
+sub read_file_first_line {
     my ($f) = @_;
     open my $fh, '<', $f or fatal "Can't read file $f: $!";
-    local $/;
-    scalar <$fh>;
+    local $/ = "\n";
+    my $str = <$fh>;
+    chomp $str;
+    return $str;
 }
 
 sub config_command {
