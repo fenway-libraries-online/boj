@@ -15,7 +15,7 @@ fi
 
 typeset dir=/ projdir
 typeset out=${TMPDIR:-/tmp}/boj.$$.out
-typeset dst
+typeset dst_ok dst_fail
 typeset log=/var/log/boj.log
 typeset msg=${TMPDIR:-/tmp}/boj.$$.msg
 typeset guard
@@ -71,12 +71,17 @@ main() {
     # More setup
     if [[ -n $projdir ]]; then
         cd $projdir || exit 2
+        typeset projid=$(project-id)
         if [[ -d out/running/. && -d out/ok/. && -d out/fail/. ]]; then
             [[ -w out/running/. && -w out/ok/. && -w out/fail/. ]] || fatal "output destination is not writeable"
             keepout=true
-            dst=out
-            typeset projid=$(project-id)
+            dst_ok=out/ok
+            dst_fail=out/fail
             out=out/running/$projid.$host.$timestamp.$$.out
+        elif [[ -d out ]]; then
+            [[ -w out/. ]] || fatal "output destination is not writeable"
+            keepout=true
+            out=out/$projid.$host.$timestamp.$$.out
         else
             out=./out
         fi
@@ -160,12 +165,12 @@ finish() {
         notify=true
     fi
     ! $notify || send-notification
-    if [[ -z $dst ]]; then
+    if [[ -z $dst_ok ]]; then
         $keepout || rm -f $out
     elif (( err == 0 )); then
-        mv $out $dst/ok/
+        mv $out $dst_ok/
     else
-        mv $out $dst/fail/
+        mv $out $dst_fail/
     fi
 }
 
