@@ -2,9 +2,9 @@
 
 metadata() {
     cat <<EOS
-    @@VERSION 0.6.5
+    @@VERSION 0.6.6
     @@AUTHOR Paul Hoffman <paul@flo.org>
-    @@COPYRIGHT Copyright 2012 Fenway Libraries Online.
+    @@COPYRIGHT Copyright 2012-2019 Fenway Libraries Online.
 EOS
 }
 
@@ -13,7 +13,7 @@ typeset out=${TMPDIR:-/tmp}/boj.$$.out
 typeset log=/var/log/boj.log
 typeset msg=${TMPDIR:-/tmp}/boj.$$.msg
 typeset guard
-typeset nomail=false alwaysmail=false keepout=false showenv=false
+typeset nomail=false alwaysmail=false keepout=false
 typeset user=$(print -P %n)
 typeset host=$(print -P %m)
 typeset HOST=$(print -P %M)
@@ -29,7 +29,7 @@ typeset cmdline cmd
 main() {
     if (( $# == 1 )) && [[ $1 == @* && -n $BOJ_ROOT && -x $BOJ_ROOT/${1[2,-1]}/run ]]; then
         # boj @foo --> boj $BOJ_ROOT/foo
-        set -- -p ${BOJ_ROOT}/${1[2,-1]}
+        projdir=${BOJ_ROOT}/${1[2,-1]}
     else
         typeset opt
         while getopts :nmkreLd:g:o:l:f:t:s:p:v opt; do
@@ -38,7 +38,6 @@ main() {
                 (m) alwaysmail=true  ;;
                 (k) keepout=true     ;;
                 (r) keepout=false    ;;
-                (e) showenv=true     ;;
                 (L) log=~/.bojlog    ;;
                 (d) dir=$OPTARG      ;;
                 (g) guard=$OPTARG    ;;
@@ -64,7 +63,6 @@ main() {
         [[ ! -e keepout    ]] || keepout=true
         [[ ! -e alwaysmail ]] || alwaysmail=true
         [[ ! -e nomail     ]] || nomail=true
-        [[ ! -e showenv    ]] || showenv=true
         # Figure out the command to execute, and what args to give it
         if (( $# == 0 )); then
             # boj -p DIR
@@ -175,11 +173,6 @@ Output for job \$J follows...
 
 EOS
             fi | expand-escapes
-        fi
-        if $showenv; then
-            print -- '# -------------------------- Environment variables -------------------------'
-            env
-            print -- '# --------------------------------------------------------------------------'
         fi
         cat $out
     } > $msg
