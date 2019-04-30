@@ -15,6 +15,7 @@ fi
 
 typeset dir=/ projdir
 typeset out=${TMPDIR:-/tmp}/boj.$$.out
+typeset dst
 typeset log=/var/log/boj.log
 typeset msg=${TMPDIR:-/tmp}/boj.$$.msg
 typeset guard
@@ -70,7 +71,15 @@ main() {
     # More setup
     if [[ -n $projdir ]]; then
         cd $projdir || exit 2
-        out=./out
+        if [[ -d out/running/. && -d out/ok/. && -d out/fail/. ]]; then
+            [[ -w out/running/. && -w out/ok/. && -w out/fail/. ]] || fatal "output destination is not writeable"
+            keepout=true
+            dst=out
+            typeset projid=$(project-id)
+            out=out/running/$projid.$host.$timestamp.$$.out
+        else
+            out=./out
+        fi
         log=./boj.log
         msg=./msg
         guard=./norun
@@ -151,7 +160,13 @@ finish() {
         notify=true
     fi
     ! $notify || send-notification
-    $keepout || rm -f $out
+    if [[ -z $dst ]]; then
+        $keepout || rm -f $out
+    elif (( err == 0 )); then
+        mv $out $dst/ok/
+    else
+        mv $out $dst/fail/
+    fi
 }
 
 usage() {
@@ -227,6 +242,14 @@ expand-escapes() {
 random() {
     dd if=/dev/random count=1 2> /dev/null | openssl base64 | tr +/ XQ | read -r
     print ${REPLY[1,16]}
+}
+
+project-id() {
+    if [[ -s boj.id ]]; then
+        cat boj.id
+    else
+        { pwd; print $$; date } | md5sum | awk '{print $1}' | tee boj.id
+    fi
 }
 
 main "$@"
