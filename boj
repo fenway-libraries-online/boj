@@ -13,6 +13,8 @@ if [[ $0 == /* && $PATH != :${0:h}: ]]; then
     PATH="${PATH}:${0:h}"
 fi
 
+setopt promptpercent
+
 typeset dir=/ projdir
 typeset out=${TMPDIR:-/tmp}/boj.$$.out
 typeset dst
@@ -24,15 +26,13 @@ typeset user=$(print -P %n)
 typeset host=$(print -P %m)
 typeset HOST=$(print -P %M)
 typeset mailfrom=${MAILFROM:-$user} mailto=${MAILTO:-$user} mailsubj=${MAILSUBJ:-'$H: [$r] $c'}
-typeset timestamp='%D{%Y%m%dT%H%M%S}'
 
-typeset begin="$(print -P $timestamp)" end
-typeset result
-typeset cmdline cmd
+typeset begin end result cmdline cmd
 
 [[ -w $log || -w $log:h ]] || log=~/.bojlog
 
 main() {
+    begin=$(now)
     integer err
     if [[ $1 == @* ]]; then
         # boj @PROJ
@@ -82,7 +82,7 @@ main() {
         if [[ -d out.d/. && -w out.d/. ]]; then
             keepout=true
             dst=out.d
-            out=$dst/$projid.$host.$user.$timestamp.$$.RUN
+            out=$dst/$projid.$host.$user.$begin.$$.RUN
         else
             out=./out
         fi
@@ -124,7 +124,7 @@ main() {
 
     # Skip if the guard file is present
     if [[ -n $guard && -e $guard ]]; then
-        end="$(print -P $timestamp)"
+        end=$(now)
         printf '%-4.4s %s %s %s\n' SKIP $begin $end $cmdline >> $log
         exit 0
     fi
@@ -150,7 +150,7 @@ finish() {
     integer err=${1:-$?}
     set +e  # Turn off automatic exit on error
     # print FINISH err=$err > /dev/tty
-    end="$(print -P $timestamp)"
+    end=$(now)
     if [[ -z $result ]]; then
         if (( err == 0 )); then
             result=OK
@@ -255,6 +255,10 @@ project-id() {
     else
         { pwd; print $$; date } | md5sum | awk '{print $1}' | tee boj.id
     fi
+}
+
+now() {
+    print -P '%D{%Y%m%dT%H%M%S}'
 }
 
 main "$@"
