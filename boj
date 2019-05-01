@@ -82,7 +82,7 @@ main() {
         if [[ -d out.d/. && -w out.d/. ]]; then
             keepout=true
             dst=out.d
-            out=$dst/$projid.$host.$user.$begin.$$.RUN
+            out=$dst/$projid.$host.$user.$begin.$$.RUNNING
         else
             out=./out
         fi
@@ -166,12 +166,16 @@ finish() {
     elif [[ -s $out ]] && ! $nomail; then
         notify=true
     fi
-    ! $notify || send-notification
     if [[ -n $dst ]]; then
-        mv $out $dst/$out:t:r.$result
-    else
-        $keepout || rm -f $out
+        typeset res=$out:h/$out:t:r.$result
+        sed -n '/^@\$#!?BOJ:/!p' $out > $res
+        rm -f $out
+        out=./out
+        cp $res $out
+        [[ -e keepout ]] || keepout=false
     fi
+    ! $notify || send-notification
+    $keepout || rm -f $out
 }
 
 usage() {
