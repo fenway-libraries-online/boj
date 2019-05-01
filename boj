@@ -173,6 +173,8 @@ finish() {
         out=./out
         cp $res $out
         [[ -e keepout ]] || keepout=false
+    else
+        sed -i -n '/^@\$#!?BOJ:/!p' $out
     fi
     ! $notify || send-notification
     $keepout || rm -f $out
