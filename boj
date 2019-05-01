@@ -47,7 +47,7 @@ finish();
 sub start {
     $begin = now();
     usage if !@ARGV;
-    if ($ARGV[0] =~ s/^@//) {
+    if ($ARGV[0] =~ s/^@// || -d $ARGV[0]) {
         config_project(@ARGV);
     }
     else {
@@ -158,6 +158,9 @@ EOS
         'u' => $login,
         'h' => $host,
         'H' => $HOST,
+        'b' => $begin,
+        'e' => $end,
+        'c' => join(' ', map { quote($_) } @cmd),
     );
     my $eoh;
     while (<$fhtemplate>) {
@@ -248,6 +251,13 @@ sub config_command {
         'M=s' => \$cfg{'msg'},
     ) or usage;
     @cmd = @_;
+}
+
+sub quote {
+    local $_ = shift;
+    return qq{"$_"} if s/(["$\\])/\\$1/g;
+    return qq{'$_'} if !/['$\\]/;
+    return $_;
 }
 
 sub fatal {
