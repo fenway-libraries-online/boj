@@ -62,20 +62,7 @@ Keep the output file.
 Remove the output file before exiting.  This is the default.
 .
 .TP
-.BI -d " DIR"
-Change to
-.I DIR
-before running the job.
-.
-.TP
-.BI -g " FILE"
-Skip the job if
-.I FILE
-exists.  The log file will record status
-.BR SKIP .
-.
-.TP
-.BI -o " FILE"
+.BI -O " FILE"
 Put output in
 .I FILE
 rather than a temporary file in
@@ -86,7 +73,7 @@ which can be overridden by option
 .BR -r .
 .
 .TP
-.BI -l " FILE"
+.BI -L " FILE"
 Log the result in
 .I FILE
 rather than
@@ -102,47 +89,12 @@ and finally
 along with its arguments.
 .
 .TP
-.B -L
-Log the result in
-.BR ~/.bojlog .
-This is the default if
-.B /var/log/boj.log
-is not writeable and
-.B -p
-is not specified.
-.
-.TP
-.BI -f " ADDRESS"
-Use
-.I ADDRESS
-as the sender of the notification.
-.
-.TP
-.BI -t " ADDRESS"
-Send the notification to
-.IR ADDRESS .
-.
-.TP
-.BI -s " STRING"
-Use
-.I STRING
-as the subject of the notification.  The default subject is
-.B [$H]: [$r] $c
-(see
-.B OUTPUT
-below for a key to the embedded variables).
-.
-.TP
 .BI -p " DIR"
 Use
 .I DIR
 as the
 .BR "project directory" .
 (see below).
-.
-.TP
-.B -v
-Show version information and exit.
 .
 .\" -----------------------------------------------------------------
 .
