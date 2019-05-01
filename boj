@@ -149,8 +149,8 @@ main() {
 finish() {
     integer err=${1:-$?}
     set +e  # Turn off automatic exit on error
-    # print FINISH err=$err > /dev/tty
     end=$(now)
+    tail -c 100 $out | awk '/^\@\$\#\!\?BOJ:([A-Z]+)/ {print substr($1,10)}' | read -r result
     if [[ -z $result ]]; then
         if (( err == 0 )); then
             result=OK
@@ -253,7 +253,7 @@ project-id() {
     if [[ -s boj.id ]]; then
         cat boj.id
     else
-        { pwd; print $$; date } | md5sum | awk '{print $1}' | tee boj.id
+        { pwd; print "$$ $host $user $begin" } | md5sum | awk '{print $1}' | tee boj.id
     fi
 }
 
