@@ -40,9 +40,15 @@ main() {
         typeset projpath=${1[2,-1]}
         if [[ $projpath == */* ]]; then
             projdir=$projpath
+        elif [[ $projpath == .* ]]; then
+            # Don't allow @./foo or @../foo
+            usage
         elif [[ -n $BOJ_ROOT && -x $BOJ_ROOT/$projpath/run ]]; then
             # boj @foo --> boj $BOJ_ROOT/foo
-            projdir=${BOJ_ROOT}/$projpath
+            projdir=$BOJ_ROOT/$projpath
+        elif [[ -z $BOJ_ROOT && -x ~/jobs/$projpath/run ]]; then
+            # boj @foo --> boj ~/jobs/foo
+            projdir=~/jobs/$projpath
         else
             usage
         fi
