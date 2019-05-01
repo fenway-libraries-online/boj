@@ -15,7 +15,7 @@ fi
 
 typeset dir=/ projdir
 typeset out=${TMPDIR:-/tmp}/boj.$$.out
-typeset dst_ok dst_fail
+typeset dst
 typeset log=/var/log/boj.log
 typeset msg=${TMPDIR:-/tmp}/boj.$$.msg
 typeset guard
@@ -33,6 +33,7 @@ typeset cmdline cmd
 [[ -w $log || -w $log:h ]] || log=~/.bojlog
 
 main() {
+    integer err
     if [[ $1 == @* ]]; then
         # boj @PROJ
         (( $# == 1 )) || usage
@@ -72,16 +73,10 @@ main() {
     if [[ -n $projdir ]]; then
         cd $projdir || exit 2
         typeset projid=$(project-id)
-        if [[ -d out/running/. && -d out/ok/. && -d out/fail/. ]]; then
-            [[ -w out/running/. && -w out/ok/. && -w out/fail/. ]] || fatal "output destination is not writeable"
+        if [[ -d out.d/. && -w out.d/. ]]; then
             keepout=true
-            dst_ok=out/ok
-            dst_fail=out/fail
-            out=out/running/$projid.$host.$timestamp.$$.out
-        elif [[ -d out ]]; then
-            [[ -w out/. ]] || fatal "output destination is not writeable"
-            keepout=true
-            out=out/$projid.$host.$timestamp.$$.out
+            dst=out.d
+            out=$dst/$projid.$host.$user.$timestamp.$$.RUN
         else
             out=./out
         fi
@@ -121,23 +116,24 @@ main() {
         cmd=$1; shift
     fi
 
-    #  If something fails, we exit -- after calling our exit handler, which
-    #  takes care of logging and notification.
+    # Skip if the guard file is present
+    if [[ -n $guard && -e $guard ]]; then
+        end="$(print -P $timestamp)"
+        printf '%-4.4s %s %s %s\n' SKIP $begin $end $cmdline >> $log
+        exit 0
+    fi
+
+    # If something fails, we exit -- after calling our exit handler, which
+    # takes care of logging and notification.
     set -e
     trap finish EXIT
 
     # Make sure all output goes to the designated file
     exec > $out 2>&1
 
-    # Run it (unless the guard file exists)
-    integer err
-    if [[ -n $guard && -e $guard ]]; then
-        result=SKIP
-        err=0
-    else
-        $cmd $@
-        err=$?
-    fi
+    # Run it
+    $cmd $@
+    err=$?
 
     # Everything else happens in finish
     trap - EXIT
@@ -165,12 +161,10 @@ finish() {
         notify=true
     fi
     ! $notify || send-notification
-    if [[ -z $dst_ok ]]; then
-        $keepout || rm -f $out
-    elif (( err == 0 )); then
-        mv $out $dst_ok/
+    if [[ -n $dst ]]; then
+        mv $out $dst/$out:t:r.$result
     else
-        mv $out $dst_fail/
+        $keepout || rm -f $out
     fi
 }
 
