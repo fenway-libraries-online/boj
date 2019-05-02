@@ -1,9 +1,9 @@
 .\" Process this file with
 .\" groff -man -Tascii boj.1
 .\"
-.ds @@VERSION 0.6.3
+.ds @@VERSION 0.6.6
 .ds @@AUTHOR Paul Hoffman <paul@flo.org>
-.ds @@COPYRIGHT Copyright 2012 Fenway Libraries Online.
+.ds @@COPYRIGHT Copyright 2012-2019 Fenway Libraries Online.
 .
 .TH BOJ 1 "boj"
 .
@@ -26,6 +26,10 @@ boj \- run a batch job and mail output
 .IR ARG .\|.\|.\&
 ]
 .
+.P
+.B boj
+.RI @ DIR
+.
 .\" -----------------------------------------------------------------
 .
 .SH DESCRIPTION
@@ -34,6 +38,22 @@ boj \- run a batch job and mail output
 runs
 .I COMMAND
 for a user and mails its output (if any) to the user.
+.
+.P
+It may be run in either of two modes:
+\(lqnormal mode\(rq
+or
+\(lqproject mode\(rq.
+.P
+When run in
+.BR "project mode" ,
+.B boj
+changes working directory to
+.I DIR
+and runs an executable named
+.B run
+that must be in
+.IR DIR .
 .
 .\" -----------------------------------------------------------------
 .
@@ -58,11 +78,6 @@ Keep the output file.
 .TP
 .B -r
 Remove the output file before exiting.
-.
-.TP
-.B -e
-Include a banner listing environment variables and their values at the top of
-any output that is sent via mail.
 .
 .TP
 .BI -d " DIR"
@@ -149,20 +164,16 @@ The
 option sets the following options:
 .
 .TP
-.B -d
-.I DIR
+\fB-d \fIDIR
 .
 .TP
-.B -g
-norun
+\fB-g \fInorun
 .
 .TP
-.B -o
-out
+\fB-o \fIout
 .
 .TP
-.B -l
-boj.log
+\fB-l \fIboj.log
 .
 .P
 It runs the executable at
@@ -171,17 +182,17 @@ and sends a notification using the mail template in the first of the
 following files that it finds in the project directory:
 .
 .TP
-.BI mail. err
+.BI mail. ERR
 .TP
-.BI mail. result
+.BI mail. RESULT
 .TP
 .B mail
 .
 .P
 Here,
-.I err
-is the exist status of the executable and
-.I result
+.I ERR
+is the exit status of the executable and
+.I RESULT
 is either
 .B OK
 or
