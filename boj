@@ -3,7 +3,6 @@
 use strict;
 use warnings;
 
-use IPC::Run3;
 use POSIX qw(strftime);
 use IO::Scalar;
 use File::Basename qw(basename);
@@ -68,22 +67,30 @@ sub run {
         print "boj: dry run: @cmd\n";
         exit;
     }
-    system qw(rm -f), glob('tmp/boj.*');
-    open my $fhout, '>', $cfg{'out'}
-        or fatal "Can't open out file $cfg{'out'}: $!";
-    my @out;
+    # system qw(rm -f), glob('tmp/boj.*');
+    my %meta;
     eval {
-        run3 \@cmd, \undef, \@out, \@out;
-        $err = 0;
-        $result = OK;
+        open STDERR, '>&STDOUT'
+            or die "dup 2>&1: $!";
+        open my $fhout, '>', $cfg{'out'}
+            or die "open $cfg{'out'}: $!";
+        open my $fhcmd, '-|', @cmd
+            or die "exec @cmd: $!";
+        while (<$fhcmd>) {
+            if (/^\@\$\#\!\?boj:([^\s=]+)=(.*)$/) {
+                $meta{$1} = $2;
+            }
+            else {
+                print $fhout $_;
+            }
+        }
+        close $fhcmd;
+        $err = $? >> 8;
+        close $fhout
+            or die "close $cfg{'out'}: $!";
     };
-    if (@out && $out[0] =~ /^\@\$\#\!\?BOJ:([A-Z]+)(?: (\d+))?$/) {
-        # @$#!?BOJ:<result code>[ <exit status>]
-        $result = $1;
-        $err = defined($2) ? $2 : $1 eq FAIL ? 2 : $err;
-        shift @out;
-    }
-    print $fhout @out;
+    $err = $meta{'err'} if exists $meta{'err'};
+    $result = $meta{'result'} if exists $meta{'result'};
     if (!defined $result) {
         $result = $err ? FAIL : OK;
     }
@@ -113,7 +120,6 @@ sub finish {
             printf $fhlog "%-4.4s %s %s %s\n", $result, $begin, $end, join(' ', @cmd);
         }
     }
-    exit $err;
 }
 
 sub now { strftime('%Y%m%dT%H%M%S', localtime) }
@@ -125,7 +131,7 @@ sub send_notification {
         if $opt{'keepout'};
     open $fhsendmail, '|-', @sendmail
         or fatal "Can't send message: $!";
-    my @templates = ( "cfg/mail.$err", "cfg/mail.$result", 'cfg/mail' );
+    my @templates = ( "mail.$err", "mail.$result", 'mail' );
     my $fhtemplate;
     foreach (@templates) {
         if (-e $_) {
@@ -206,19 +212,11 @@ sub config_project {
     my $script = "$projdir/run";
     -f $script && -x _
         or fatal "No run script in $projdir";
-    $cfg{'log'} = "$projdir/log/boj.log";
-    $cfg{'out'} = "$projdir/tmp/boj.out";
-    $cfg{'msg'} = "$projdir/tmp/boj.msg";
-    foreach (glob('opt/*')) {
-        $opt{$1} = 1 if m{^opt/([^.]\S*)$};
-    }
-    foreach (glob('cfg/*')) {
-        $cfg{$1} = read_file_first_line($_) if m{^cfg/([^.]\S*)$};
-    }
-    if (!$opt{'dryrun'}) {
-        foreach (qw(tmp log)) {
-            -d $_ or mkdir $_ or fatal "Can't mkdir $projdir/$_: $!";
-        }
+    $cfg{'log'} = "$projdir/boj.log";
+    $cfg{'out'} = "$projdir/out";
+    $cfg{'msg'} = "$projdir/msg";
+    foreach my $optfile (qw(keepout nomail alwaysmail)) {
+        $opt{$optfile} = 1 if -e $optfile;
     }
     @cmd = ( $script );
 }
@@ -255,8 +253,8 @@ sub config_command {
 
 sub quote {
     local $_ = shift;
-    return qq{"$_"} if s/(["$\\])/\\$1/g;
-    return qq{'$_'} if !/['$\\]/;
+    return qq{"$_"} if s/(["\$\\])/\\$1/g;
+    return qq{'$_'} if !/['\$\\]/;
     return $_;
 }
 
