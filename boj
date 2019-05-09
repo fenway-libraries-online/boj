@@ -7,6 +7,7 @@ use POSIX qw(strftime);
 use IO::Scalar;
 use File::Basename qw(basename);
 use String::Expando;
+use String::ShellQuote;
 use Getopt::Long
     qw(GetOptionsFromArray :config posix_default gnu_compat require_order bundling no_ignore_case);
 
@@ -70,12 +71,15 @@ sub run {
     # system qw(rm -f), glob('tmp/boj.*');
     my %meta;
     eval {
-        open STDERR, '>&STDOUT'
-            or die "dup 2>&1: $!";
+        #open my $fhout, '>', $cfg{'out'}
+        #    or die "open $cfg{'out'}: $!";
+        #open my $fhcmd, '-|', @cmd
+        #    or die "exec @cmd: $!";
+        my $cmd = shell_quote(@cmd) . " 2>&1 |";
+        open my $fhcmd, $cmd
+            or die "exec $cmd: $!";
         open my $fhout, '>', $cfg{'out'}
             or die "open $cfg{'out'}: $!";
-        open my $fhcmd, '-|', @cmd
-            or die "exec @cmd: $!";
         while (<$fhcmd>) {
             if (/^\@\$\#\!\?boj:([^\s=]+)=(.*)$/) {
                 $meta{$1} = $2;
