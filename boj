@@ -11,6 +11,13 @@ use String::ShellQuote;
 use Getopt::Long
     qw(GetOptionsFromArray :config posix_default gnu_compat require_order bundling no_ignore_case);
 
+=for comment
+Do you see _changecom(...)_ in the line below?
+<changecom(`###',`\n')>
+If so, you're looking at the file from which __PROG__ is built.
+Otherwise, you're looking at a built copy of __PROG__.
+=cut
+
 sub result($) { $_[0] => $_[0] }
 
 use constant result 'OK';
@@ -21,19 +28,20 @@ sub fatal;
 sub usage;
 sub now;
 
-my $root     = '/var/local/boj';
-my $log      = '/var/log/boj.log';
-my @sendmail = qw(/usr/sbin/sendmail -oi -t);
+my $root     = "/var/local/__PROG__";
+my $logname  = "__PROG__.log";
+my $log      = "/var/log/$logname";
+my @sendmail = qw(__SENDMAIL__);
 
 my (@cmd, %opt, %cfg);
 my $fhcmd;
 my $projdir;
 my ($err, $result, $begin, $end);
 foreach (keys %ENV) {
-    if (/^BOJ_OPT_(\S+)/) {
+    if (/^__PROG__()_OPT_(\S+)/) {
         $opt{lc $1} = 1;
     }
-    elsif (/^BOJ_CFG_(\S+)/) {
+    elsif (/^__PROG__()_CFG_(\S+)/) {
         $cfg{lc $1} = $ENV{$_};
     }
 }
@@ -65,7 +73,7 @@ sub run {
     }
     binmode STDOUT;
     if ($opt{'dryrun'}) {
-        print "boj: dry run: @cmd\n";
+        print STDERR "__PROG__: dry run: @cmd\n";
         exit;
     }
     # system qw(rm -f), glob('tmp/boj.*');
@@ -81,7 +89,7 @@ sub run {
         open my $fhout, '>', $cfg{'out'}
             or die "open $cfg{'out'}: $!";
         while (<$fhcmd>) {
-            if (/^\@\$\#\!\?boj:([^\s=]+)=(.*)$/) {
+            if (/^\@\$\#\!\?__PROG__:([^\s=]+)=(.*)$/) {
                 $meta{$1} = $2;
             }
             else {
@@ -192,23 +200,23 @@ EOS
 sub find_project {
     my ($proj) = @_;
     return $proj if $proj =~ m{^/\S+$};
-    my $path = $ENV{'BOJ_PATH'};
+    my $path = $ENV{'__PROG__()_PATH'};
     ($path) = glob('~/jobs') if !defined $path;
-    fatal "Can't find project $proj -- BOJ_PATH not set" if !defined $path;
+    fatal "Can't find project $proj -- __PROG__()_PATH not set" if !defined $path;
     my @found;
     foreach (split /:+/, $path) {
         my $dir = "$_/$proj";
         next if ! -d $dir || ! -x _ || ! -r _;
         push @found, $dir;
     }
-    fatal "Can't find project $proj in BOJ_PATH" if !@found;
-    fatal "Multiple projects '$proj' in BOJ_PATH:", @found
+    fatal "Can't find project $proj in __PROG__()_PATH" if !@found;
+    fatal "Multiple projects '$proj' in __PROG__()_PATH:", @found
         if @found > 1;
     return $found[0];
 }
 
 sub config_project {
-    # usage: boj @PROJECT
+    # usage: __PROG__ @PROJECT
     usage if @_ > 1;
     my ($proj) = @_;
     $projdir = find_project($proj);
@@ -216,7 +224,7 @@ sub config_project {
     my $script = "$projdir/run";
     -f $script && -x _
         or fatal "No run script in $projdir";
-    $cfg{'log'} = "$projdir/boj.log";
+    $cfg{'log'} = "$projdir/$logname";
     $cfg{'out'} = "$projdir/out";
     $cfg{'msg'} = "$projdir/msg";
     foreach my $optfile (qw(keepout nomail alwaysmail)) {
@@ -235,9 +243,9 @@ sub read_file_first_line {
 }
 
 sub config_command {
-    $cfg{'log'} = -w $log ? $log : (glob('~/.bojlog'))[0] || fatal 'No writable log';
-    $cfg{'out'} = "/tmp/boj.$$.out";
-    $cfg{'msg'} = "/tmp/boj.$$.msg";
+    $cfg{'log'} = -w $log ? $log : (glob("~/.__PROG__()log"))[0] || fatal 'No writable log';
+    $cfg{'out'} = "/tmp/__PROG__.$$.out";
+    $cfg{'msg'} = "/tmp/__PROG__.$$.msg";
     $opt{'keepout'}    = 0;
     $opt{'nomail'}     = 0;
     $opt{'alwaysmail'} = 0;
@@ -262,6 +270,14 @@ sub quote {
     return $_;
 }
 
+sub usage {
+    print STDERR <<"EOS";
+usage: __PROG__ @PROJDIR
+       __PROG__ 
+EOS
+    exit 1;
+}
+
 sub fatal {
     print STDERR $_, "\n" for @_;
     exit 2;
@@ -271,27 +287,27 @@ sub fatal {
 
 =head1 NAME
 
-boj - run a command and mail unexpected output to the user
+__PROG__ - run a command and mail unexpected output to the user
 
 =head1 SYNOPSIS
 
-boj [I<OPTION>...] I<COMMAND> [I<ARG]...]
+__PROG__ [I<OPTION>...] I<COMMAND> [I<ARG]...]
 
-boj @I<PROJDIR>
+__PROG__ @I<PROJDIR>
 
 =head1 DESCRIPTION
 
-B<boj> runs I<COMMAND> and sends a message to the user containing its output
+B<__PROG__> runs I<COMMAND> and sends a message to the user containing its output
 (if any) and a meaningful subject line.  No message is sent if I<COMMAND> exits
 normally (i.e., with status 0).
 
-B<boj> is intended as a cron job wrapper but may be useful in any context in
+B<__PROG__> is intended as a cron job wrapper but may be useful in any context in
 which additional control over the reporting of command results is desired.
 
-When invoked as B<boj @>I<PROJDIR> the executable file B<run> within I<PROJDIR>
+When invoked as B<__PROG__ @>I<PROJDIR> the executable file B<run> within I<PROJDIR>
 is executed and run-time parameters are set via files within I<PROJDIR> as
 described below.  It is an error to include any command-line options or other
-arguments when invoking B<boj> in this way.
+arguments when invoking B<__PROG__> in this way.
 
 =head1 OPTIONS
 
@@ -301,80 +317,73 @@ directory within I<PROJDIR>.
 
 =over 4
 
-=item B<-n>, B<opt/nomail>
+=item B<-n>, B<nomail>
 
 Don't send mail unless the command exited with non-zero status, regardless of
 whether it produced any output.
 
-=item B<-m>, B<opt/alwaysmail>
+=item B<-m>, B<alwaysmail>
 
 Always send mail, regardless of whether the command exited with non-zero status
 or produced any output.
 
-=item B<-k>, B<opt/keepout>
+=item B<-k>, B<keepout>
 
 Keep the temporary output file.
 
-=item B<-d> I<DIR>
+=item B<-r>
 
-Change to I<DIR> before running the command.
+Do not keep the temporary output file.  This is the default.
 
-=item B<-g> I<FILE>, B<opt/skip>
-
-If I<FILE> exists, do not run the command; instead, log a B<SKIP> result.  If a
-message template is specified for B<SKIP> results then a message will be sent.
-When invoked as @I<PROJDIR> the presence of the file B<opt/skip> indicates that
-the job should be skipped.
-
-=item B<-O> I<FILE>, B<cfg/out>
+=item B<-O> I<FILE>, B<out>
 
 Write command output to I<FILE> (or the file named by the contents of
-B<cfg/out>).
+B<out>).
 
-=item B<-M> I<FILE>, B<cfg/msg>
+=item B<-L> I<FILE>, B<log>
+
+Log the result in I<FILE> (or the file named by the contents of B<log>)
+rather than the usual log file (/var/log/__PROG__.log if writeable, otherwise
+~/.__PROG__()log).
+
+=item B<-M> I<FILE>, B<msg>
 
 Write the resulting message to I<FILE> (or the file named by the contents of
-B<cfg/msg>).
+B<msg>).
 
-=item B<-L> I<FILE>, B<cfg/log>
+=item B<-q>, B<nolog>
 
-Log the result in I<FILE> (or the file named by the contents of B<cfg/log>)
-rather than the usual log file (/var/log/boj.log if writeable, otherwise
-~/.bojlog).
-
-=item B<-q>, B<opt/nolog>
-
-Do not log anything.  This overrides B<-L> and B<cfg/log>.
+Do not log anything.  This overrides B<-L> and B<log>.
 
 =back
 
 =head1 ENVIRONMENT
 
-Environment variables whose names take the form B<BOJ_OPT_>I<OPTION> will set
-the lower-case form of I<OPTION>.  For example, if B<BOJ_OPT_NOMAIL> is set
+Environment variables whose names take the form B<__PROG__()_OPT_>I<OPTION> will set
+the lower-case form of I<OPTION>.  For example, if B<__PROG__()_OPT_NOMAIL> is set
 then the B<nomail> option will be set.
 
-Environment variables whose names take the form B<BOJ_CFG_>I<KEY>=I<VALUE> will
+Environment variables whose names take the form B<__PROG__()_CFG_>I<KEY>=I<VALUE> will
 set the corresponding (lower-cased) configuration variable.  For example,
-setting B<BOJ_CFG_LOG> to C<foo> has the same effect as specifying option
+setting B<__PROG__()_CFG_LOG> to C<foo> has the same effect as specifying option
 B<-l foo> on the command line.
 
 =head1 DIAGNOSTICS
 
 If I<COMMAND> (or I<PROJDIR>/run) exits with status 0, the result is logged as
-C<OK> and B<boj> exits with status 0.
+C<OK> and B<__PROG__> exits with status 0.
 
-If the command produces any output, B<boj> checks the first line; if it has the
+If the command produces any output, B<__PROG__> checks the first line; if it has the
 following form, with I<RESULT> matching the regular expression /^[A-Z]+$/, then
 I<RESULT> will be used as the job result regardless of the command's exit
 status:
 
-@$#!?BOJ:I<RESULT>[ I<STATUS>]
+@$#!?__PROG__():I<RESULT>[ I<STATUS>]
 
-The optional I<STATUS> may be used to set the exit status of B<boj>; it does
+The optional I<STATUS> may be used to set the exit status of B<__PROG__>; it does
 not affect the logged result.
 
-If B<boj> receives a B<USR1> signal, it concludes that the job was meant to be
+If B<__PROG__> receives a B<USR1> signal, it concludes that the job was meant to be
 cancelled: it logs a successful result and returns exit status 0.
 
 =cut
