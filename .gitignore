@@ -2,3 +2,5 @@ boj-*.*
 boj-*.*.tar.gz
 old
 *.tmp
+*.bak
+*.old
