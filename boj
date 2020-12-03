@@ -8,6 +8,8 @@ use IO::Scalar;
 use File::Basename qw(basename);
 use String::Expando;
 use String::ShellQuote;
+use Digest::MD5 qw(md5_hex);
+use Time::HiRes qw(time);
 use Getopt::Long
     qw(GetOptionsFromArray :config posix_default gnu_compat require_order bundling no_ignore_case);
 
@@ -24,6 +26,8 @@ use constant result 'OK';
 use constant result 'FAIL';
 use constant result 'SKIP';
 
+(my $prog = $0) =~ s{.*/}{};
+
 sub fatal;
 sub usage;
 sub now;
@@ -38,10 +42,10 @@ my $fhcmd;
 my $projdir;
 my ($err, $result, $begin, $end);
 foreach (keys %ENV) {
-    if (/^__PROG__()_OPT_(\S+)/) {
-        $opt{lc $1} = 1;
+    if (/^__UCPROG__()_OPT_(\S+)/) {
+        $opt{lc $1} = bool($ENV{$_});
     }
-    elsif (/^__PROG__()_CFG_(\S+)/) {
+    elsif (/^__UCPROG__()_CFG_(\S+)/) {
         $cfg{lc $1} = $ENV{$_};
     }
 }
@@ -54,7 +58,8 @@ finish();
 
 sub start {
     $begin = now();
-    usage if !@ARGV;
+    usage '@PROJECT', '[OPTION...] COMMAND [ARG...]'
+        if !@ARGV;
     if ($ARGV[0] =~ s/^@// || -d $ARGV[0]) {
         config_project(@ARGV);
     }
@@ -147,12 +152,12 @@ sub send_notification {
     my $fhtemplate;
     foreach (@templates) {
         if (-e $_) {
-            open $fhtemplate, '<', $_ or fatal;
+            open $fhtemplate, '<', $_ or fatal "open $fhtemplate: $!";
             last;
         }
     }
     if (!defined $fhtemplate) {
-        open $fhtemplate, '<', \<<'EOS' or fatal;
+        open $fhtemplate, '<', \<<'EOS' or fatal "use default template: $!";
 From: $u@$H
 To: $u@$H
 Subject: $h: [$r] $J
@@ -200,7 +205,7 @@ EOS
 sub find_project {
     my ($proj) = @_;
     return $proj if $proj =~ m{^/\S+$};
-    my $path = $ENV{'__PROG__()_PATH'};
+    my $path = $ENV{'__UCPROG__()_PATH'};
     ($path) = glob('~/jobs') if !defined $path;
     fatal "Can't find project $proj -- __PROG__()_PATH not set" if !defined $path;
     my @found;
@@ -216,21 +221,60 @@ sub find_project {
 }
 
 sub config_project {
-    # usage: __PROG__ @PROJECT
     usage if @_ > 1;
+    usage '@PROJECT' if @_ > 1;
     my ($proj) = @_;
     $projdir = find_project($proj);
     chdir $projdir or fatal "Can't chdir $projdir: $!";
     my $script = "$projdir/run";
     -f $script && -x _
         or fatal "No run script in $projdir";
-    $cfg{'log'} = "$projdir/$logname";
-    $cfg{'out'} = "$projdir/out";
-    $cfg{'msg'} = "$projdir/msg";
-    foreach my $optfile (qw(keepout nomail alwaysmail)) {
-        $opt{$optfile} = 1 if -e $optfile;
+    my %file = qw(
+        cfg:log         log/boj.log
+        cfg:out         tmp/out
+        cfg:msg         tmp/msg
+        opt:keepout     opt/keepout
+        opt:nomail      opt/nomail
+        opt:alwaysmail  opt/alwaysmail
+    );
+    my ($old, $moved) = (0, 0);
+    while (my ($k, $f) = each %file) {
+        my $fnew = $f;
+        (my $d = $f) =~ s{/.+}{};
+        if (!-e $fnew) {
+            $old++;
+            $f =~ s{.+/}{};
+        }
+        if ($k =~ s/^cfg://) {
+            $cfg{$k} = $f if !exists $cfg{$k};
+        }
+        elsif ($k =~ s/^opt://) {
+            $opt{$k} = (-e $f ? 1 : 0) if !exists $opt{$k};
+        }
+        if ($f ne $fnew) {
+            # Try to upgrade to new file layout
+            if ((-d $d || mkdir $d) && rename $f, $fnew) {
+                $old--;
+                $moved++;
+                $f = $fnew;
+            }
+        }
+    }
+    if ($moved) {
+        if ($old) {
+            # Some files remain in their old places
+            # TODO: Print some warning???
+        }
+        if (!-e 'boj.id' && open my $fhid, '>', 'boj.id') {
+            print $fhid new_project_id($projdir), "\n";
+            close $fhid;
+        }
     }
     @cmd = ( $script );
+}
+
+sub new_project_id {
+    md5_hex($$, time, rand);
 }
 
 sub read_file_first_line {
@@ -259,7 +303,7 @@ sub config_command {
         'O=s' => sub { $cfg{'out'} = $_[1]; $opt{'keepout'} = 1 },
         'L=s' => \$cfg{'log'},
         'M=s' => \$cfg{'msg'},
-    ) or usage;
+    ) or usage '[-krqnm] [-O FILE] [-L FILE] [-M FILE]';
     @cmd = @_;
 }
 
@@ -270,16 +314,25 @@ sub quote {
     return $_;
 }
 
+sub bool {
+    return shift() =~ /^[YT1]/i ? 1 : 0
+}
+
 sub usage {
-    print STDERR <<"EOS";
-usage: __PROG__ @PROJDIR
-       __PROG__ 
-EOS
+    my $prefix = 'usage:';
+    foreach (@_) {
+        printf STDERR "%-6.6s %s %s\n", $prefix, $prog, $_;
+        $prefix = '';
+    }
     exit 1;
 }
 
 sub fatal {
-    print STDERR $_, "\n" for @_;
+    my $prefix = $prog . ': ';
+    foreach (@_) {
+        print STDERR $prefix, $_;
+        $prefix = '';
+    }
     exit 2;
 }
 
@@ -291,7 +344,7 @@ __PROG__ - run a command and mail unexpected output to the user
 
 =head1 SYNOPSIS
 
-__PROG__ [I<OPTION>...] I<COMMAND> [I<ARG]...]
+__PROG__ [I<OPTION>...] I<COMMAND> [I<ARG>...]
 
 __PROG__ @I<PROJDIR>
 
@@ -307,13 +360,48 @@ which additional control over the reporting of command results is desired.
 When invoked as B<__PROG__ @>I<PROJDIR> the executable file B<run> within I<PROJDIR>
 is executed and run-time parameters are set via files within I<PROJDIR> as
 described below.  It is an error to include any command-line options or other
-arguments when invoking B<__PROG__> in this way.
+arguments when invoking B<boj> in this way.
+
+The prefix B<@> may be omitted if I<PROJDIR> is an absolute path.
 
 =head1 OPTIONS
 
 All options may be set in two ways: either by specifying the option in the
 command line or by including an appropriately named file in an B<opt> or B<cfg>
-directory within I<PROJDIR>.
+directory within I<PROJDIR>.  In order to main tain backwards compatibility
+with older versions of B<__PROG__>, if a file doesn't exist in B<opt> or B<cfg> (as
+appropriate), then the file is looked for in I<PROJDIR>; thus, for example, the
+presence of a file B<mail> is equivalent to the presence of a file B<opt/mail>.
+
+The standard layout, if all files are present, looks like this:
+
+    PROJDIR/
+      __PROG__.id
+      cfg/
+        out
+        msg
+      log/
+        __PROG__.log
+      opt/
+        alwaysmail
+        keepout
+        nomail
+      run
+
+And the older layout looks like this:
+
+    PROJDIR/
+      out
+      msg
+      __PROG__.log
+      alwaysmail
+      keepout
+      nomail
+      run
+
+B<__PROG__> will attempt to upgrade the contents of I<PROJDIR> to the new layout if
+it can, but it is not an error if any directories can't be created or any files
+can't be moved.
 
 =over 4
 
